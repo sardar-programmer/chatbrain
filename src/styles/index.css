@@ -1,0 +1,120 @@
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/500.css';
+@import '@fontsource/newsreader/600.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--text-primary));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Thin theme-aware scrollbars: thumb visible on hover using text-tertiary at reduced opacity */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: hsla(var(--text-tertiary) / 0.35) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-pill);
+  transition: background-color 150ms ease-out;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: hsla(var(--text-tertiary) / 0.35);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsla(var(--text-tertiary) / 0.6);
+}
+
+/* Remove scrollbar buttons/arrows everywhere so they never consume layout space */
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Main content scroll container: stable gutter to prevent horizontal layout shift */
+#main-content {
+  scrollbar-gutter: stable;
+}
+
+/* Sidebar navigation scroll area: NEVER show a scrollbar or shift layout on hover */
+.sidebar-nav-scroll,
+.sidebar-nav-scroll *,
+#app-sidebar,
+#app-sidebar * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.sidebar-nav-scroll::-webkit-scrollbar,
+.sidebar-nav-scroll *::-webkit-scrollbar,
+#app-sidebar::-webkit-scrollbar,
+#app-sidebar *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.sidebar-nav-scroll::-webkit-scrollbar-button,
+.sidebar-nav-scroll *::-webkit-scrollbar-button,
+#app-sidebar::-webkit-scrollbar-button,
+#app-sidebar *::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.sidebar-nav-scroll:hover,
+.sidebar-nav-scroll *:hover,
+#app-sidebar:hover,
+#app-sidebar *:hover {
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+/* Sidebar width transition: reflows horizontally only */
+.sidebar-transition {
+  transition: width 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

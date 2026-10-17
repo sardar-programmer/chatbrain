@@ -1,0 +1,47 @@
+@layer base {
+  :root {
+    --background: 43 27% 97%;       /* #FAF9F5 */
+    --sidebar: 50 24% 95%;          /* #F5F4ED */
+    --sidebar-accent: 43 20% 90%;   /* subtle active item background */
+    --surface: 0 0% 100%;           /* #FFFFFF */
+    --elevated: 0 0% 100%;          /* #FFFFFF */
+    --border: 48 18% 89%;           /* #E8E6DC */
+    --text-primary: 60 3% 8%;       /* #141413 */
+    --text-secondary: 50 3% 44%;    /* #73726C */
+    --text-tertiary: 47 5% 62%;     /* #A3A19A */
+    --accent: 15 65% 60%;           /* #D97757 */
+    --accent-hover: 15 60% 51%;     /* #C6613F */
+    --accent-soft: 18 56% 92%;      /* #F5E6DF */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF */
+    --status-success: 119 21% 45%;  /* #5B8C5A */
+    --status-warning: 36 65% 48%;   /* #C98A2B */
+    --status-error: 5 52% 49%;      /* #C0463B */
+    --status-info: 211 28% 55%;     /* #6B8CAE */
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-card: 16px;
+    --radius-composer: 24px;
+    --radius-pill: 9999px;
+  }
+
+  .dark {
+    --background: 60 3% 15%;        /* #262624 */
+    --sidebar: 30 3% 12%;           /* #1F1E1D */
+    --sidebar-accent: 40 4% 18%;    /* subtle active item background */
+    --surface: 60 2% 19%;           /* #30302E */
+    --elevated: 60 3% 22%;          /* #3A3A37 */
+    --border: 60 3% 24%;            /* #3E3E3A */
+    --text-primary: 43 27% 97%;     /* #FAF9F5 */
+    --text-secondary: 45 7% 63%;    /* #A6A39A */
+    --text-tertiary: 45 4% 47%;     /* #7C7A73 */
+    --accent: 15 65% 60%;           /* #D97757 */
+    --accent-hover: 15 72% 66%;     /* #E58A6B */
+    --accent-soft: 20 22% 19%;      /* #3D2E27 */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF */
+    --status-success: 118 21% 53%;  /* #6E9E6D */
+    --status-warning: 37 65% 54%;   /* #D89B3D */
+    --status-error: 5 60% 56%;      /* #D2584D */
+    --status-info: 211 35% 62%;     /* #7E9EBE */
+  }
+}
