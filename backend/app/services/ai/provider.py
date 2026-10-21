@@ -21,6 +21,89 @@ class ModelInfo(BaseModel):
     )
 
 
+class ModelKind(BaseModel):
+    """Computed model kind with inference metadata."""
+
+    kind: str
+    kind_inferred: bool
+
+
+def derive_kind(
+    model_id: str,
+    supported_actions: list[str],
+    capabilities: list[str],
+) -> ModelKind:
+    """Classify a model into its functional kind. Computed at read time, never stored.
+
+    Priority order (first match wins):
+    1. predictLongRunning action -> "video"       (kind_inferred=True: action not video-specific)
+    2. bidiGenerateMusic action  -> "music"        (kind_inferred=False)
+    3. embedContent/embedText    -> "embeddings"   (kind_inferred=False)
+    4. generateAnswer            -> "qa"           (kind_inferred=False)
+    5. bidiGenerateContent only (no generateContent) -> "live" (kind_inferred=False)
+    6. id contains "transcribe"  -> "transcribe"   (kind_inferred=True)
+    7. id contains "lyria"       -> "music"         (kind_inferred=True)
+    8. id contains "antigravity" or "computer-use" -> "agent"    (kind_inferred=True)
+       id contains "deep-research"                 -> "research"  (kind_inferred=True)
+       id contains "robotics"                      -> "robotics"  (kind_inferred=True)
+    9. generateContent + capability "image" -> "image" (kind_inferred=False)
+       generateContent + capability "audio" -> "audio" (kind_inferred=False)
+    10. generateContent otherwise -> "chat"  (kind_inferred=False)
+    11. Anything else -> "unknown"
+    """
+    actions_lower = {a.lower() for a in supported_actions}
+    caps_lower = {c.lower() for c in capabilities}
+    id_lower = model_id.lower()
+
+    # 1. predictLongRunning -> "video" (action not video-specific => inferred)
+    if "predictlongrunning" in actions_lower:
+        return ModelKind(kind="video", kind_inferred=True)
+
+    # 2. bidiGenerateMusic -> "music"
+    if "bidigeneratemusic" in actions_lower:
+        return ModelKind(kind="music", kind_inferred=False)
+
+    # 3. embedContent / embedText -> "embeddings"
+    if "embedcontent" in actions_lower or "embedtext" in actions_lower:
+        return ModelKind(kind="embeddings", kind_inferred=False)
+
+    # 4. generateAnswer -> "qa"
+    if "generateanswer" in actions_lower:
+        return ModelKind(kind="qa", kind_inferred=False)
+
+    # 5. bidiGenerateContent only (no generateContent) -> "live"
+    if "bidigeneratecontent" in actions_lower and "generatecontent" not in actions_lower:
+        return ModelKind(kind="live", kind_inferred=False)
+
+    # 6. id fragment: "transcribe"
+    if "transcribe" in id_lower:
+        return ModelKind(kind="transcribe", kind_inferred=True)
+
+    # 7. id fragment: "lyria"
+    if "lyria" in id_lower:
+        return ModelKind(kind="music", kind_inferred=True)
+
+    # 8. id fragments for agent-like / research / robotics
+    if "antigravity" in id_lower or "computer-use" in id_lower:
+        return ModelKind(kind="agent", kind_inferred=True)
+    if "deep-research" in id_lower:
+        return ModelKind(kind="research", kind_inferred=True)
+    if "robotics" in id_lower:
+        return ModelKind(kind="robotics", kind_inferred=True)
+
+    # 9. generateContent + reported capability
+    if "generatecontent" in actions_lower:
+        if "image" in caps_lower:
+            return ModelKind(kind="image", kind_inferred=False)
+        if "audio" in caps_lower:
+            return ModelKind(kind="audio", kind_inferred=False)
+        # 10. generateContent otherwise -> chat
+        return ModelKind(kind="chat", kind_inferred=False)
+
+    # 11. Fallback
+    return ModelKind(kind="unknown", kind_inferred=False)
+
+
 def derive_capabilities(
     supported_actions: list[str],
     metadata: dict[str, Any] | None = None,
@@ -94,6 +177,6 @@ def get_ai_provider() -> AIProvider:
 
 
 def set_ai_provider(provider: AIProvider | None) -> None:
-    """Override AI provider (used extensively in test suites to prevent real network calls)."""
+    """Override AI provider (used in test suites to prevent real network calls)."""
     global _provider_instance
     _provider_instance = provider

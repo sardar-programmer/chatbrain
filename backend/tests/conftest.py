@@ -12,6 +12,55 @@ from app.security import TOKEN_HEADER_NAME
 from app.services.ai.provider import ModelInfo, set_ai_provider
 
 
+def _m(
+    model_id: str,
+    display_name: str,
+    supported_actions: list[str],
+    capabilities: list[str] | None = None,
+) -> ModelInfo:
+    """Helper to build a ModelInfo quickly."""
+    return ModelInfo(
+        id=model_id,
+        display_name=display_name,
+        provider="gemini",
+        capabilities=capabilities or [],
+        input_token_limit=1024,
+        output_token_limit=256,
+        supported_actions=supported_actions,
+        status="available",
+        last_checked="2026-10-21T00:00:00Z",
+    )
+
+
+# Canonical fixture list — mirrors all kinds required by M1.2b tests
+FIXTURE_MODELS: list[ModelInfo] = [
+    # chat: generateContent + countTokens, no special capabilities
+    _m("gemini-2.5-flash", "Gemini 2.5 Flash", ["generateContent", "countTokens"], ["text"]),
+    # live: bidiGenerateContent only (no generateContent)
+    _m("gemini-live-002", "Gemini Live 002", ["bidiGenerateContent"]),
+    # embeddings: embedContent
+    _m("text-embedding-004", "Text Embedding 004", ["embedContent"], ["embeddings"]),
+    # image: generateContent + capability "image"
+    _m("imagen-3.0-generate", "Imagen 3.0", ["generateContent"], ["text", "image"]),
+    # audio/TTS: generateContent + capability "audio"
+    _m("gemini-tts-001", "Gemini TTS 001", ["generateContent"], ["text", "audio"]),
+    # video: predictLongRunning
+    _m("veo-2.0-generate", "Veo 2.0", ["predictLongRunning"]),
+    # music: bidiGenerateMusic
+    _m("music-fx-002", "Music FX 002", ["bidiGenerateMusic"]),
+    # transcribe: id fragment
+    _m("gemini-transcribe-001", "Gemini Transcribe", ["generateContent"]),
+    # agent: id fragment "antigravity"
+    _m("antigravity-001", "Antigravity Agent", ["generateContent"]),
+    # research: id fragment "deep-research"
+    _m("gemini-deep-research-001", "Gemini Deep Research", ["generateContent"]),
+    # qa: generateAnswer action
+    _m("aqa-model-001", "AQA Model", ["generateAnswer"]),
+    # unknown: no actions, no capabilities
+    _m("future-custom-model", "Future Custom Model", []),
+]
+
+
 class FakeProvider:
     """Deterministic in-memory AI provider that never makes external network calls."""
 
@@ -24,41 +73,7 @@ class FakeProvider:
         self.valid_keys = valid_keys or {"valid-secret-key-1234567890"}
         self.should_fail_quota = should_fail_quota
         self.should_fail_network = should_fail_network
-        self.models_to_return: list[ModelInfo] = [
-            ModelInfo(
-                id="gemini-2.5-flash",
-                display_name="Gemini 2.5 Flash",
-                provider="gemini",
-                capabilities=["text"],
-                input_token_limit=1048576,
-                output_token_limit=8192,
-                supported_actions=["generateContent"],
-                status="available",
-                last_checked="2026-10-18T00:00:00Z",
-            ),
-            ModelInfo(
-                id="text-embedding-004",
-                display_name="Text Embedding 004",
-                provider="gemini",
-                capabilities=["embeddings"],
-                input_token_limit=2048,
-                output_token_limit=None,
-                supported_actions=["embedContent"],
-                status="available",
-                last_checked="2026-10-18T00:00:00Z",
-            ),
-            ModelInfo(
-                id="future-custom-model",
-                display_name="Future Custom Model",
-                provider="gemini",
-                capabilities=["unknown"],
-                input_token_limit=None,
-                output_token_limit=None,
-                supported_actions=[],
-                status="available",
-                last_checked="2026-10-18T00:00:00Z",
-            ),
-        ]
+        self.models_to_return: list[ModelInfo] = list(FIXTURE_MODELS)
 
     def validate_key(self, api_key: str) -> bool:
         if self.should_fail_network:
@@ -119,3 +134,9 @@ def auth_headers(client: TestClient) -> dict[str, str]:
     res = client.get("/api/v1/bootstrap")
     token = res.json()["token"]
     return {TOKEN_HEADER_NAME: token}
+
+
+@pytest.fixture
+def authed_client(client: TestClient, auth_headers: dict[str, str]) -> tuple[TestClient, dict[str, str]]:
+    """Convenience fixture returning (client, auth_headers)."""
+    return client, auth_headers

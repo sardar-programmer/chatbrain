@@ -90,7 +90,8 @@ def test_delete_removes_file_and_cache(client: TestClient, auth_headers: dict[st
     # Verify models cache is cleared and connected is false
     models_res = client.get("/api/v1/models", headers=auth_headers)
     assert models_res.status_code == 200
-    assert models_res.json() == {"models": [], "connected": False}
+    assert models_res.json()["models"] == []
+    assert models_res.json()["connected"] is False
 
 
 def test_models_empty_with_connected_false_before_key_exists(
