@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { PageHeader } from '../../components/shared/PageHeader';
 import { HonestBadge } from '../../components/shared/HonestBadge';
+import { PageHeader } from '../../components/shared/PageHeader';
 import { WORKSPACE_NAV_ITEMS } from '../../config/navigation';
+import { useStatus } from '../settings/hooks/useStatus';
 
 export const HomeView: React.FC = () => {
+  const { data: status, isError } = useStatus();
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -13,12 +16,31 @@ export const HomeView: React.FC = () => {
     return 'Good evening';
   };
 
+  const statusLine = useMemo(() => {
+    if (isError || !status || status.api !== 'ok') {
+      return 'Backend not connected · Demo mode';
+    }
+    const parts = ['Backend connected'];
+    if (status.key_configured) {
+      parts.push('Gemini key configured');
+      parts.push(`${status.models_count} model${status.models_count === 1 ? '' : 's'}`);
+    } else {
+      parts.push('Gemini key not configured');
+    }
+    return parts.join(' · ');
+  }, [status, isError]);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6">
       <PageHeader
         title={`${getGreeting()}, Architect`}
         description="Pick up where you left off or open an active workspace."
-        badge={<HonestBadge variant="demo" label="Demo mode" />}
+        badge={
+          <HonestBadge
+            variant={status?.api === 'ok' ? 'demo' : 'disconnected'}
+            label={status?.api === 'ok' ? 'Online' : 'Offline'}
+          />
+        }
         actions={
           <Link
             to="/chat/new"
@@ -59,7 +81,7 @@ export const HomeView: React.FC = () => {
       </div>
 
       <div className="text-center py-4 border-t border-border/40 text-xs text-text-tertiary">
-        Backend not connected yet · Demo mode · Local single-user instance
+        {statusLine} · Local single-user instance
       </div>
     </div>
   );

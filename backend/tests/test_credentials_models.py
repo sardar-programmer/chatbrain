@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 from app.services.ai.provider import derive_capabilities
-from tests.conftest import FakeProvider
+from tests.conftest import FIXTURE_MODELS, FakeProvider
 
 
 def test_key_never_appears_in_response(client: TestClient, auth_headers: dict[str, str]) -> None:
@@ -101,7 +101,8 @@ def test_models_empty_with_connected_false_before_key_exists(
     """Before any key is configured, /models returns empty list with connected: false."""
     res = client.get("/api/v1/models", headers=auth_headers)
     assert res.status_code == 200
-    assert res.json() == {"models": [], "connected": False}
+    assert res.json()["models"] == []
+    assert res.json()["connected"] is False
 
 
 def test_refresh_stores_normalized_models_and_capabilities(
@@ -118,7 +119,7 @@ def test_refresh_stores_normalized_models_and_capabilities(
     assert refresh_res.status_code == 200
     data = refresh_res.json()
     assert data["connected"] is True
-    assert len(data["models"]) == 3
+    assert len(data["models"]) == len(FIXTURE_MODELS)
 
     # Check normalized properties
     flash = next(m for m in data["models"] if m["id"] == "gemini-2.5-flash")
@@ -132,7 +133,7 @@ def test_refresh_stores_normalized_models_and_capabilities(
     get_res = client.get("/api/v1/models", headers=auth_headers)
     assert get_res.status_code == 200
     assert get_res.json()["connected"] is True
-    assert len(get_res.json()["models"]) == 3
+    assert len(get_res.json()["models"]) == len(FIXTURE_MODELS)
 
 
 def test_unknown_capabilities_stay_unknown(client: TestClient, auth_headers: dict[str, str]) -> None:
@@ -146,6 +147,7 @@ def test_unknown_capabilities_stay_unknown(client: TestClient, auth_headers: dic
     res = client.get("/api/v1/models", headers=auth_headers)
     unknown_model = next(m for m in res.json()["models"] if m["id"] == "future-custom-model")
     assert unknown_model["capabilities"] == ["unknown"]
+    assert unknown_model["kind"] == "unknown"
 
     # Direct unit test on derive_capabilities
     assert derive_capabilities([]) == ["unknown"]

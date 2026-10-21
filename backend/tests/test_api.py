@@ -60,6 +60,13 @@ def test_bad_host_rejected(client: TestClient) -> None:
     assert "Invalid Host header" in err["error"]["message"]
 
 
+def test_proxied_host_with_port_accepted(client: TestClient) -> None:
+    """Requests with localhost and port (e.g. localhost:3000) are accepted."""
+    res = client.get("/api/v1/health", headers={"host": "localhost:3000"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+
 def test_running_migrations_twice_changes_nothing(tmp_path: Path) -> None:
     """Applying migrations twice is idempotent and safe."""
     isolated_db = tmp_path / "idempotent_test.db"

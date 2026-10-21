@@ -6,6 +6,7 @@ A lightweight, single-user, local-first backend built with FastAPI and SQLite.
 
 - **Port & Host**: Runs locally on `http://127.0.0.1:8000` (strictly local binding).
 - **Frontend Port**: Runs on `http://localhost:3000` (`strictPort: true`).
+- **Python Requirement**: Python 3.12 is preferred (minimum Python >= 3.11 required). `scripts/setup-api.mjs` selects `py -3.12` on Windows, then `python3.12`, then `python`, failing loudly if the interpreter is older than 3.11.
 - **Database**: SQLite database stored at `data/app.db` with idempotent SQL migrations (`001_settings.sql`, `002_model_registry.sql`).
 - **Key Storage**:
   - The Gemini API key is stored strictly on disk at `data/secrets/gemini.key`.
@@ -70,7 +71,26 @@ backend/
 | `DELETE`| `/api/v1/credentials/gemini` | Yes (`X-ChatBrain-Token`) | Removes key file and clears cached models from DB. |
 | `POST`| `/api/v1/credentials/gemini/test` | Yes (`X-ChatBrain-Token`) | Tests saved key with provider (no secrets in message). |
 | `POST`| `/api/v1/models/refresh` | Yes (`X-ChatBrain-Token`) | Discovers models from provider and replaces DB cache. |
-| `GET` | `/api/v1/models` | Yes (`X-ChatBrain-Token`) | Returns cached models list or empty with `connected:false`. |
+| `GET` | `/api/v1/models` | Yes (`X-ChatBrain-Token`) | Returns cached models list with computed `kind` & `kind_inferred`, plus `default_chat_model`. |
+| `GET` | `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Returns `{model_id, valid, reason}` for default chat model. |
+| `PUT` | `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Sets default chat model; rejects non-chat unless `force=true`. |
+| `DELETE`| `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Clears the default chat model selection. |
+| `GET` | `/api/v1/status` | Yes (`X-ChatBrain-Token`) | System status (health, DB, Python, key status, models count, last success/error). |
+
+### Model Kind Classification Rules (`derive_kind`)
+
+Model functional kinds are classified at read-time (never persisted) using API-reported metadata in strict priority order:
+1. `predictLongRunning` in actions -> `"video"` (`kind_inferred: true` since action is not video-specific)
+2. `bidiGenerateMusic` in actions -> `"music"` (`kind_inferred: false`)
+3. `embedContent` or `embedText` in actions -> `"embeddings"` (`kind_inferred: false`)
+4. `generateAnswer` in actions -> `"qa"` (`kind_inferred: false`)
+5. `bidiGenerateContent` in actions without `generateContent` -> `"live"` (`kind_inferred: false`)
+6. ID contains `"transcribe"` -> `"transcribe"` (`kind_inferred: true`)
+7. ID contains `"lyria"` -> `"music"` (`kind_inferred: true`)
+8. ID contains `"antigravity"` or `"computer-use"` -> `"agent"` (`kind_inferred: true`); ID contains `"deep-research"` -> `"research"` (`kind_inferred: true`); ID contains `"robotics"` -> `"robotics"` (`kind_inferred: true`)
+9. `generateContent` in actions and capability `"image"` -> `"image"`; capability `"audio"` -> `"audio"` (`kind_inferred: false`)
+10. `generateContent` in actions otherwise -> `"chat"` (`kind_inferred: false`)
+11. Otherwise -> `"unknown"` (`kind_inferred: false`)
 
 All errors return the standard format:
 ```json

@@ -19,12 +19,14 @@ def get_cached_models(conn: sqlite3.Connection) -> list[ModelInfo]:
     rows = cursor.fetchall()
     models: list[ModelInfo] = []
     for row in rows:
+        raw_caps = json.loads(row["capabilities"])
+        caps = raw_caps if raw_caps else ["unknown"]
         models.append(
             ModelInfo(
                 id=row["id"],
                 display_name=row["display_name"],
                 provider=row["provider"],
-                capabilities=json.loads(row["capabilities"]),
+                capabilities=caps,
                 input_token_limit=row["input_token_limit"],
                 output_token_limit=row["output_token_limit"],
                 supported_actions=json.loads(row["supported_actions"]),

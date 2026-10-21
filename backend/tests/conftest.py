@@ -9,7 +9,7 @@ from app.db.migrations import run_migrations
 from app.errors import ProviderException
 from app.main import app
 from app.security import TOKEN_HEADER_NAME
-from app.services.ai.provider import ModelInfo, set_ai_provider
+from app.services.ai.provider import ModelInfo, derive_capabilities, set_ai_provider
 
 
 def _m(
@@ -17,15 +17,21 @@ def _m(
     display_name: str,
     supported_actions: list[str],
     capabilities: list[str] | None = None,
+    input_token_limit: int | None = 1024,
+    output_token_limit: int | None = 256,
 ) -> ModelInfo:
     """Helper to build a ModelInfo quickly."""
+    if capabilities is None:
+        caps = derive_capabilities(supported_actions)
+    else:
+        caps = capabilities if capabilities else ["unknown"]
     return ModelInfo(
         id=model_id,
         display_name=display_name,
         provider="gemini",
-        capabilities=capabilities or [],
-        input_token_limit=1024,
-        output_token_limit=256,
+        capabilities=caps,
+        input_token_limit=input_token_limit,
+        output_token_limit=output_token_limit,
         supported_actions=supported_actions,
         status="available",
         last_checked="2026-10-21T00:00:00Z",
@@ -35,7 +41,14 @@ def _m(
 # Canonical fixture list — mirrors all kinds required by M1.2b tests
 FIXTURE_MODELS: list[ModelInfo] = [
     # chat: generateContent + countTokens, no special capabilities
-    _m("gemini-2.5-flash", "Gemini 2.5 Flash", ["generateContent", "countTokens"], ["text"]),
+    _m(
+        "gemini-2.5-flash",
+        "Gemini 2.5 Flash",
+        ["generateContent", "countTokens"],
+        ["text"],
+        input_token_limit=1048576,
+        output_token_limit=8192,
+    ),
     # live: bidiGenerateContent only (no generateContent)
     _m("gemini-live-002", "Gemini Live 002", ["bidiGenerateContent"]),
     # embeddings: embedContent

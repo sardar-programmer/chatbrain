@@ -124,10 +124,15 @@ def _enrich_models(models: list[ModelInfo]) -> list[ModelWithKind]:
     """Attach computed kind + kind_inferred to each model (read-time, no storage)."""
     result: list[ModelWithKind] = []
     for m in models:
-        kind_obj = derive_kind(m.id, m.supported_actions, list(m.capabilities))
+        caps = [c for c in m.capabilities if c] if m.capabilities else ["unknown"]
+        if not caps:
+            caps = ["unknown"]
+        kind_obj = derive_kind(m.id, m.supported_actions, caps)
+        data = m.model_dump()
+        data["capabilities"] = caps
         result.append(
             ModelWithKind(
-                **m.model_dump(),
+                **data,
                 kind=kind_obj.kind,
                 kind_inferred=kind_obj.kind_inferred,
             )
