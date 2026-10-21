@@ -1,30 +1,8 @@
-"""Comprehensive tests for Chat-Brain backend endpoints and security."""
+"""Tests for Chat-Brain core endpoints, bootstrap, settings, and host security."""
 
-from collections.abc import Generator
 from pathlib import Path
-import pytest
 from fastapi.testclient import TestClient
-from app.config import get_settings
 from app.db.migrations import run_migrations
-from app.main import app
-from app.security import TOKEN_HEADER_NAME
-
-
-@pytest.fixture(autouse=True)
-def setup_test_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
-    """Isolate tests with a temporary SQLite database."""
-    test_db = tmp_path / "test_app.db"
-    settings = get_settings()
-    monkeypatch.setattr(settings, "db_path", str(test_db))
-    run_migrations(test_db)
-    yield
-
-
-@pytest.fixture
-def client() -> Generator[TestClient, None, None]:
-    """Test client instance."""
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def test_health_ok(client: TestClient) -> None:
@@ -56,24 +34,17 @@ def test_put_without_token_returns_401(client: TestClient) -> None:
     assert err["error"]["category"] == "auth"
 
 
-def test_put_with_token_works_and_persists(client: TestClient) -> None:
+def test_put_with_token_works_and_persists(client: TestClient, auth_headers: dict[str, str]) -> None:
     """PUT /api/v1/settings/{key} with token stores setting and GET retrieves it."""
-    # 1. Fetch bootstrap token
-    bootstrap_res = client.get("/api/v1/bootstrap")
-    token = bootstrap_res.json()["token"]
-    headers = {TOKEN_HEADER_NAME: token}
-
-    # 2. Put setting
     put_res = client.put(
         "/api/v1/settings/theme",
         json={"value": "gruvbox-dark"},
-        headers=headers,
+        headers=auth_headers,
     )
     assert put_res.status_code == 200
     assert put_res.json() == {"key": "theme", "value": "gruvbox-dark"}
 
-    # 3. Get settings with token
-    get_res = client.get("/api/v1/settings", headers=headers)
+    get_res = client.get("/api/v1/settings", headers=auth_headers)
     assert get_res.status_code == 200
     settings = get_res.json()["settings"]
     assert settings.get("theme") == "gruvbox-dark"

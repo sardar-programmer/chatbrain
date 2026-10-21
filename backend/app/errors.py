@@ -36,7 +36,7 @@ class ValidationException(ChatBrainException):
 
 
 class AuthException(ChatBrainException):
-    """Authentication or token verification failure."""
+    """Authentication or token/key verification failure."""
 
     def __init__(
         self,
@@ -51,6 +51,13 @@ class NotFoundException(ChatBrainException):
 
     def __init__(self, message: str = "Resource not found", status_code: int = 404) -> None:
         super().__init__(category="not_found", message=message, status_code=status_code)
+
+
+class ProviderException(ChatBrainException):
+    """Upstream AI provider failure (invalid key, quota, network/timeout)."""
+
+    def __init__(self, message: str, status_code: int = 502) -> None:
+        super().__init__(category="provider", message=message, status_code=status_code)
 
 
 class InternalException(ChatBrainException):
