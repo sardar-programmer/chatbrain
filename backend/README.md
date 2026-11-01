@@ -7,7 +7,7 @@ A lightweight, single-user, local-first backend built with FastAPI and SQLite.
 - **Port & Host**: Runs locally on `http://127.0.0.1:8000` (strictly local binding).
 - **Frontend Port**: Runs on `http://localhost:3000` (`strictPort: true`).
 - **Python Requirement**: Python 3.12 is preferred (minimum Python >= 3.11 required). `scripts/setup-api.mjs` selects `py -3.12` on Windows, then `python3.12`, then `python`, failing loudly if the interpreter is older than 3.11.
-- **Database**: SQLite database stored at `data/app.db` with idempotent SQL migrations (`001_settings.sql`, `002_model_registry.sql`).
+- **Database**: SQLite database stored at `data/app.db` with idempotent SQL migrations (`001_settings.sql`, `002_model_registry.sql`, `003_chat.sql`). Foreign key enforcement is enabled (`PRAGMA foreign_keys=ON;`).
 - **Key Storage**:
   - The Gemini API key is stored strictly on disk at `data/secrets/gemini.key`.
   - `data/` is gitignored.
@@ -76,6 +76,16 @@ backend/
 | `PUT` | `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Sets default chat model; rejects non-chat unless `force=true`. |
 | `DELETE`| `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Clears the default chat model selection. |
 | `GET` | `/api/v1/status` | Yes (`X-ChatBrain-Token`) | System status (health, DB, Python, key status, models count, last success/error). |
+| `GET` | `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | List conversations ordered by pinned DESC, updated_at DESC (search & cursor pagination). |
+| `POST`| `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | Create conversation with optional title. |
+| `GET` | `/api/v1/conversations/{id}` | Yes (`X-ChatBrain-Token`) | Retrieve conversation with messages ordered by seq. |
+| `PATCH`| `/api/v1/conversations/{id}` | Yes (`X-ChatBrain-Token`) | Rename or pin conversation (never changes updated_at). |
+| `DELETE`| `/api/v1/conversations/{id}` | Yes (`X-ChatBrain-Token`) | Soft delete conversation (sets deleted_at). |
+| `POST`| `/api/v1/conversations/{id}/restore` | Yes (`X-ChatBrain-Token`) | Restores soft-deleted conversation. |
+| `POST`| `/api/v1/conversations/clear` | Yes (`X-ChatBrain-Token`) | Soft deletes all non-deleted conversations. |
+| `POST`| `/api/v1/conversations/restore` | Yes (`X-ChatBrain-Token`) | Batch restore soft-deleted conversations by IDs. |
+| `POST`| `/api/v1/conversations/{id}/messages` | Yes (`X-ChatBrain-Token`) | Add user message (auto-titles if first message; updates updated_at). |
+| `PATCH`| `/api/v1/messages/{id}` | Yes (`X-ChatBrain-Token`) | Edit user message (deletes subsequent messages, sets edited_at). |
 
 ### Model Kind Classification Rules (`derive_kind`)
 

@@ -10,12 +10,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.api.chat_routes import router as chat_router
 from app.api.routes import router
 from app.config import get_settings
+from app.db.database import create_connection
 from app.db.migrations import run_migrations
 from app.errors import ChatBrainException
 from app.logging_config import setup_logging
 from app.security import TOKEN_HEADER_NAME, get_startup_token, verify_host_header
+from app.services.chat.chat_store import (
+    purge_old_soft_deleted_conversations,
+    recover_interrupted_messages,
+)
 
 setup_logging()
 logger = logging.getLogger("chatbrain.app")
@@ -27,6 +33,20 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Initializing Chat-Brain backend...")
     applied = run_migrations()
     logger.info("Database migrations complete. Applied: %s", applied)
+    try:
+        conn = create_connection()
+        try:
+            purged = purge_old_soft_deleted_conversations(conn)
+            recovered = recover_interrupted_messages(conn)
+            logger.info(
+                "Startup chat cleanup: purged %d old soft-deleted, recovered %d messages",
+                purged,
+                recovered,
+            )
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.error("Startup chat cleanup failed: %s", exc)
     yield
     logger.info("Shutting down Chat-Brain backend.")
 
@@ -128,3 +148,4 @@ async def generic_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 
 
 app.include_router(router)
+app.include_router(chat_router)
