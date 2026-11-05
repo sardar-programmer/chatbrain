@@ -64,6 +64,7 @@ def create_conversation(conn: sqlite3.Connection, title: str | None = None) -> d
         """,
         (conv_id, clean_title, title_source, now, now),
     )
+    conn.commit()
     return {
         "id": conv_id,
         "title": clean_title,
@@ -214,6 +215,7 @@ def update_conversation(
     if updates:
         params.append(conv_id)
         conn.execute(f"UPDATE conversations SET {', '.join(updates)} WHERE id = ?;", params)
+        conn.commit()
 
     return get_conversation(conn, conv_id)  # type: ignore[return-value]
 

@@ -2,7 +2,8 @@
 
 import sqlite3
 from typing import Any
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from app.db.database import get_db
 from app.errors import NotFoundException
 from app.schemas.chat import (
@@ -11,6 +12,7 @@ from app.schemas.chat import (
     ConversationDeleteResponse,
     ConversationDetailResponse,
     ConversationListResponse,
+    ConversationReplyPayload,
     ConversationRestoreManyPayload,
     ConversationRestoreManyResponse,
     ConversationUpdatePayload,
@@ -22,6 +24,12 @@ from app.schemas.chat import (
 from app.security import verify_token
 from app.services.chat import chat_store
 from app.services.chat.chat_helpers import validate_uuid
+from app.services.chat.chat_stream_session import (
+    acquire_stream_lock,
+    prepare_reply_session,
+    release_stream_lock,
+)
+from app.services.chat.chat_streamer import stream_reply_events
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_token)])
 
@@ -142,3 +150,41 @@ def edit_user_message(
     valid_id = validate_uuid(message_id)
     msg, removed_count = chat_store.edit_user_message(conn, valid_id, payload.content)
     return {"message": msg, "removed_count": removed_count}
+
+
+@router.post("/conversations/{conversation_id}/reply")
+async def reply_conversation(
+    conversation_id: str,
+    request: Request,
+    payload: ConversationReplyPayload | None = None,
+    conn: sqlite3.Connection = Depends(get_db),
+) -> StreamingResponse:
+    """Stream assistant reply via Server-Sent Events (SSE)."""
+    valid_id = validate_uuid(conversation_id)
+    content = payload.content if payload else None
+    regenerate = payload.regenerate if payload else False
+
+    conv = chat_store.get_conversation(conn, valid_id)
+    if not conv:
+        raise NotFoundException("Conversation not found")
+
+    await acquire_stream_lock(valid_id)
+    try:
+        user_msg_id = prepare_reply_session(conn, valid_id, content, regenerate)
+    except Exception:
+        await release_stream_lock(valid_id)
+        raise
+
+    return StreamingResponse(
+        stream_reply_events(
+            conv_id=valid_id,
+            user_msg_id=user_msg_id,
+            request=request,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

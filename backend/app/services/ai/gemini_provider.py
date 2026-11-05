@@ -1,11 +1,13 @@
 """Official Google GenAI SDK provider implementation for Gemini models."""
 
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 import logging
+from typing import Any
 from google import genai
-from google.genai import errors
 from app.errors import ProviderException
-from app.services.ai.provider import ModelInfo, derive_capabilities
+from app.services.ai.error_classifier import classify_provider_error
+from app.services.ai.provider import ModelInfo, StreamChunk, derive_capabilities
 
 logger = logging.getLogger("chatbrain.ai.gemini")
 
@@ -19,33 +21,28 @@ class GeminiProvider:
         """Create a genai.Client instance with the given key."""
         clean_key = api_key.strip()
         if not clean_key:
-            raise ProviderException("Empty API key provided", status_code=400)
+            raise ProviderException("Empty API key provided", code="invalid_key", status_code=400)
         return genai.Client(api_key=clean_key)
 
     def _handle_error(self, exc: Exception) -> None:
         """Translate upstream SDK errors to sanitized ProviderExceptions."""
-        if isinstance(exc, errors.ClientError):
-            code = getattr(exc, "code", 400)
-            if code == 400 or "API key not valid" in str(exc):
-                raise ProviderException("Invalid Gemini API key", status_code=400) from exc
-            if code == 429 or "RESOURCE_EXHAUSTED" in str(exc):
-                raise ProviderException("Gemini quota or rate limit exceeded", status_code=429) from exc
-            raise ProviderException("Gemini client error", status_code=400) from exc
-
-        if isinstance(exc, errors.ServerError):
-            raise ProviderException("Gemini upstream service error", status_code=502) from exc
-
-        if isinstance(exc, (TimeoutError, ConnectionError)):
-            raise ProviderException("Network error contacting Gemini API", status_code=504) from exc
-
-        logger.warning("Unexpected Gemini error: %s", type(exc).__name__)
-        raise ProviderException("Failed to communicate with Gemini provider", status_code=502) from exc
+        classified = classify_provider_error(exc)
+        status_code = 400 if classified.code in ("invalid_key", "bad_request") else 502
+        if classified.code == "quota":
+            status_code = 429
+        elif classified.code == "timeout":
+            status_code = 504
+        raise ProviderException(
+            message=classified.message,
+            code=classified.code,
+            retryable=classified.retryable,
+            status_code=status_code,
+        ) from exc
 
     def validate_key(self, api_key: str) -> bool:
         """Validate API key by attempting to query one model item."""
         try:
             client = self._create_client(api_key)
-            # Fetch at least one item from the models iterator to verify the key
             iterator = iter(client.models.list())
             try:
                 next(iterator)
@@ -93,3 +90,42 @@ class GeminiProvider:
         except Exception as exc:
             self._handle_error(exc)
             return []
+
+    async def stream_chat(
+        self,
+        api_key: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        system_instruction: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """Stream chat completion chunks asynchronously via google-genai SDK."""
+        try:
+            client = self._create_client(api_key)
+            config: dict[str, Any] = {}
+            if system_instruction:
+                config["system_instruction"] = system_instruction
+
+            # Format contents into Gemini [{role, parts: [{text}]}]
+            contents: list[dict[str, Any]] = []
+            for msg in messages:
+                role = "model" if msg.get("role") in ("model", "assistant") else "user"
+                content_text = msg.get("content", "")
+                parts = msg.get("parts") or [{"text": content_text}]
+                contents.append({"role": role, "parts": parts})
+
+            response_stream = await client.aio.models.generate_content_stream(
+                model=model_id,
+                contents=contents,
+                config=config if config else None,
+            )
+
+            async for chunk in response_stream:
+                finish_reason = None
+                if getattr(chunk, "candidates", None) and len(chunk.candidates) > 0:
+                    fr = getattr(chunk.candidates[0], "finish_reason", None)
+                    if fr:
+                        finish_reason = str(fr)
+                text_delta = getattr(chunk, "text", "") or ""
+                yield StreamChunk(text=text_delta, finish_reason=finish_reason)
+        except Exception as exc:
+            self._handle_error(exc)

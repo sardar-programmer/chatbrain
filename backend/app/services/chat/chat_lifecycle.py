@@ -11,6 +11,7 @@ def recover_interrupted_messages(conn: sqlite3.Connection) -> int:
     cur = conn.execute(
         "UPDATE messages SET status = 'stopped' WHERE status IN ('streaming', 'sending');"
     )
+    conn.commit()
     return cur.rowcount
 
 
@@ -22,6 +23,7 @@ def delete_conversation(conn: sqlite3.Connection, conv_id: str) -> dict[str, str
         raise NotFoundException("Conversation not found")
     now = datetime.now(timezone.utc).isoformat()
     conn.execute("UPDATE conversations SET deleted_at = ? WHERE id = ?;", (now, conv_id))
+    conn.commit()
     return {"id": conv_id, "deleted_at": now}
 
 
@@ -36,6 +38,7 @@ def restore_conversation(
     if not cur.fetchone():
         raise NotFoundException("Conversation not found")
     conn.execute("UPDATE conversations SET deleted_at = NULL WHERE id = ?;", (conv_id,))
+    conn.commit()
     return get_fn(conn, conv_id)
 
 
@@ -47,6 +50,7 @@ def clear_all_conversations(conn: sqlite3.Connection) -> list[str]:
     if ids:
         now = datetime.now(timezone.utc).isoformat()
         conn.execute("UPDATE conversations SET deleted_at = ? WHERE deleted_at IS NULL;", (now,))
+        conn.commit()
     return ids
 
 
@@ -64,6 +68,7 @@ def restore_many_conversations(conn: sqlite3.Connection, ids: list[str]) -> list
     if matching_ids:
         in_sql = ",".join("?" for _ in matching_ids)
         conn.execute(f"UPDATE conversations SET deleted_at = NULL WHERE id IN ({in_sql});", matching_ids)
+        conn.commit()
     return matching_ids
 
 
@@ -74,4 +79,5 @@ def purge_old_soft_deleted_conversations(conn: sqlite3.Connection, days: int = 7
         "DELETE FROM conversations WHERE deleted_at IS NOT NULL AND deleted_at < ?;",
         (cutoff,),
     )
+    conn.commit()
     return cur.rowcount

@@ -86,6 +86,54 @@ backend/
 | `POST`| `/api/v1/conversations/restore` | Yes (`X-ChatBrain-Token`) | Batch restore soft-deleted conversations by IDs. |
 | `POST`| `/api/v1/conversations/{id}/messages` | Yes (`X-ChatBrain-Token`) | Add user message (auto-titles if first message; updates updated_at). |
 | `PATCH`| `/api/v1/messages/{id}` | Yes (`X-ChatBrain-Token`) | Edit user message (deletes subsequent messages, sets edited_at). |
+| `POST`| `/api/v1/conversations/{id}/reply` | Yes (`X-ChatBrain-Token`) | Stream assistant reply via Server-Sent Events (SSE). |
+
+### SSE Streaming Protocol (`/api/v1/conversations/{id}/reply`)
+
+The reply endpoint streams assistant responses over HTTP using Server-Sent Events (`text/event-stream`).
+
+#### Concurrency & Validation
+- **Single-Stream Lock**: Only one active stream is permitted per conversation at a time. A concurrent reply request immediately returns `HTTP 409 Conflict` (`{error: {category: "conflict", message: "..."}}`).
+- **Validation**: Requests with empty content on an empty conversation or invalid turn state return `HTTP 422 Unprocessable Entity` immediately.
+- **Heartbeats**: Every 15 seconds of idle time without a chunk, an SSE comment (`: ping\n\n`) is sent to keep connection proxies alive.
+- **Persistence**: Assistant text is persisted to SQLite every ~300ms during active streaming and finalized on stream completion.
+
+#### Event Types
+| Event | Payload | Description |
+|---|---|---|
+| `message_created` | `{"user_message_id": string, "assistant_message_id": string}` | Emitted immediately after message validation and assistant row creation. |
+| `status` | `{"phase": string, "model_id": string, "text": string}` | Emitted during reply lifecycle phases: `preparing`, `connecting`, `waiting_first_token`, `writing`. |
+| `delta` | `{"text": string}` | Emitted for each incremental token delta from the AI model. |
+| `done` | `{"message_id": string, "status": "done", "model_used": string}` | Emitted when streaming completes normally. Assistant message status updated to `done`. |
+| `error` | `{"category": string, "code": string, "message": string, "retryable": bool, "message_id": string \| null}` | Emitted on provider error, timeout, or safety block. Message status updated to `error`. |
+| `stopped` | `{"message_id": string}` | Emitted if client disconnects mid-stream. Assistant message status updated to `stopped`. |
+
+#### Example Event Stream
+```text
+event: message_created
+data: {"user_message_id": "06050b1a-05c2-4a0b-9df6-b816a7daee29", "assistant_message_id": "848bb22d-327c-47ea-9ec2-e0892095f462"}
+
+event: status
+data: {"phase": "preparing", "model_id": "gemini-2.5-flash", "text": "Preparing your message"}
+
+event: status
+data: {"phase": "connecting", "model_id": "gemini-2.5-flash", "text": "Connecting to gemini-2.5-flash"}
+
+event: status
+data: {"phase": "waiting_first_token", "model_id": "gemini-2.5-flash", "text": "Waiting for the first words"}
+
+event: status
+data: {"phase": "writing", "model_id": "gemini-2.5-flash", "text": "Writing the answer"}
+
+event: delta
+data: {"text": "Hello"}
+
+event: delta
+data: {"text": " world!"}
+
+event: done
+data: {"message_id": "848bb22d-327c-47ea-9ec2-e0892095f462", "status": "done", "model_used": "gemini-2.5-flash"}
+```
 
 ### Model Kind Classification Rules (`derive_kind`)
 

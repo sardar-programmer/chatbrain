@@ -52,6 +52,7 @@ def add_user_message(
             conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?;", (now, conv_id))
     else:
         conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?;", (now, conv_id))
+    conn.commit()
 
     return {
         "id": msg_id,
@@ -97,6 +98,7 @@ def edit_user_message(conn: sqlite3.Connection, msg_id: str, content: str) -> tu
 
     conn.execute("UPDATE messages SET content = ?, edited_at = ? WHERE id = ?;", (content, now, msg_id))
     conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?;", (now, msg["conversation_id"]))
+    conn.commit()
 
     updated_msg = {
         "id": msg_id,

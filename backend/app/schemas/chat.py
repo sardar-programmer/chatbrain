@@ -23,6 +23,13 @@ class ConversationRestoreManyPayload(BaseModel):
     ids: list[str] = Field(..., min_length=1)
 
 
+class ConversationReplyPayload(BaseModel):
+    """Payload to trigger assistant reply stream."""
+
+    content: str | None = Field(default=None, max_length=100000)
+    regenerate: bool = False
+
+
 class MessageCreatePayload(BaseModel):
     """Payload to create a user message."""
 

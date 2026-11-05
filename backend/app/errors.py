@@ -56,8 +56,27 @@ class NotFoundException(ChatBrainException):
 class ProviderException(ChatBrainException):
     """Upstream AI provider failure (invalid key, quota, network/timeout)."""
 
-    def __init__(self, message: str, status_code: int = 502) -> None:
+    def __init__(
+        self,
+        message: str,
+        code: str = "unknown",
+        retryable: bool = False,
+        status_code: int = 502,
+    ) -> None:
         super().__init__(category="provider", message=message, status_code=status_code)
+        self.code = code
+        self.retryable = retryable
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize into provider error envelope."""
+        return {
+            "error": {
+                "category": self.category,
+                "code": self.code,
+                "message": self.message,
+                "retryable": self.retryable,
+            }
+        }
 
 
 class InternalException(ChatBrainException):

@@ -1,7 +1,9 @@
 """Pytest configuration and isolated testing fixtures."""
 
-from collections.abc import Generator
+import asyncio
+from collections.abc import AsyncIterator, Generator
 from pathlib import Path
+from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from app.config import get_settings
@@ -9,7 +11,12 @@ from app.db.migrations import run_migrations
 from app.errors import ProviderException
 from app.main import app
 from app.security import TOKEN_HEADER_NAME
-from app.services.ai.provider import ModelInfo, derive_capabilities, set_ai_provider
+from app.services.ai.provider import (
+    ModelInfo,
+    StreamChunk,
+    derive_capabilities,
+    set_ai_provider,
+)
 
 
 def _m(
@@ -40,7 +47,6 @@ def _m(
 
 # Canonical fixture list — mirrors all kinds required by M1.2b tests
 FIXTURE_MODELS: list[ModelInfo] = [
-    # chat: generateContent + countTokens, no special capabilities
     _m(
         "gemini-2.5-flash",
         "Gemini 2.5 Flash",
@@ -49,27 +55,16 @@ FIXTURE_MODELS: list[ModelInfo] = [
         input_token_limit=1048576,
         output_token_limit=8192,
     ),
-    # live: bidiGenerateContent only (no generateContent)
     _m("gemini-live-002", "Gemini Live 002", ["bidiGenerateContent"]),
-    # embeddings: embedContent
     _m("text-embedding-004", "Text Embedding 004", ["embedContent"], ["embeddings"]),
-    # image: generateContent + capability "image"
     _m("imagen-3.0-generate", "Imagen 3.0", ["generateContent"], ["text", "image"]),
-    # audio/TTS: generateContent + capability "audio"
     _m("gemini-tts-001", "Gemini TTS 001", ["generateContent"], ["text", "audio"]),
-    # video: predictLongRunning
     _m("veo-2.0-generate", "Veo 2.0", ["predictLongRunning"]),
-    # music: bidiGenerateMusic
     _m("music-fx-002", "Music FX 002", ["bidiGenerateMusic"]),
-    # transcribe: id fragment
     _m("gemini-transcribe-001", "Gemini Transcribe", ["generateContent"]),
-    # agent: id fragment "antigravity"
     _m("antigravity-001", "Antigravity Agent", ["generateContent"]),
-    # research: id fragment "deep-research"
     _m("gemini-deep-research-001", "Gemini Deep Research", ["generateContent"]),
-    # qa: generateAnswer action
     _m("aqa-model-001", "AQA Model", ["generateAnswer"]),
-    # unknown: no actions, no capabilities
     _m("future-custom-model", "Future Custom Model", []),
 ]
 
@@ -87,6 +82,15 @@ class FakeProvider:
         self.should_fail_quota = should_fail_quota
         self.should_fail_network = should_fail_network
         self.models_to_return: list[ModelInfo] = list(FIXTURE_MODELS)
+        self.chunks_to_stream: list[StreamChunk] = [
+            StreamChunk(text="Hello"),
+            StreamChunk(text=" from"),
+            StreamChunk(text=" Chat-Brain!"),
+        ]
+        self.stream_delay: float = 0.0
+        self.stream_error: Exception | None = None
+        self.stream_error_after_chunks: int | None = None
+        self.recorded_calls: list[dict[str, Any]] = []
 
     def validate_key(self, api_key: str) -> bool:
         if self.should_fail_network:
@@ -100,6 +104,41 @@ class FakeProvider:
     def list_models(self, api_key: str) -> list[ModelInfo]:
         self.validate_key(api_key)
         return self.models_to_return
+
+    async def stream_chat(
+        self,
+        api_key: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        system_instruction: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        self.validate_key(api_key)
+        self.recorded_calls.append({
+            "model_id": model_id,
+            "messages_count": len(messages),
+            "system_instruction": system_instruction,
+            "first_role": messages[0]["role"] if messages else None,
+        })
+
+        if self.stream_error and self.stream_error_after_chunks is None:
+            raise self.stream_error
+
+        count = 0
+        for chunk in self.chunks_to_stream:
+            if self.stream_error and self.stream_error_after_chunks == count:
+                raise self.stream_error
+
+            if self.stream_delay > 0:
+                await asyncio.sleep(self.stream_delay)
+
+            count += 1
+            if isinstance(chunk, str):
+                yield StreamChunk(text=chunk)
+            else:
+                yield chunk
+
+        if self.stream_error and (self.stream_error_after_chunks is None or self.stream_error_after_chunks == count):
+            raise self.stream_error
 
 
 @pytest.fixture

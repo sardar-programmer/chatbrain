@@ -1,8 +1,18 @@
 """Provider abstraction protocols and normalized model structures."""
 
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
+
+
+@dataclass
+class StreamChunk:
+    """Single streaming chunk from an AI provider."""
+
+    text: str = ""
+    finish_reason: str | None = None
 
 
 class ModelInfo(BaseModel):
@@ -33,24 +43,7 @@ def derive_kind(
     supported_actions: list[str],
     capabilities: list[str],
 ) -> ModelKind:
-    """Classify a model into its functional kind. Computed at read time, never stored.
-
-    Priority order (first match wins):
-    1. predictLongRunning action -> "video"       (kind_inferred=True: action not video-specific)
-    2. bidiGenerateMusic action  -> "music"        (kind_inferred=False)
-    3. embedContent/embedText    -> "embeddings"   (kind_inferred=False)
-    4. generateAnswer            -> "qa"           (kind_inferred=False)
-    5. bidiGenerateContent only (no generateContent) -> "live" (kind_inferred=False)
-    6. id contains "transcribe"  -> "transcribe"   (kind_inferred=True)
-    7. id contains "lyria"       -> "music"         (kind_inferred=True)
-    8. id contains "antigravity" or "computer-use" -> "agent"    (kind_inferred=True)
-       id contains "deep-research"                 -> "research"  (kind_inferred=True)
-       id contains "robotics"                      -> "robotics"  (kind_inferred=True)
-    9. generateContent + capability "image" -> "image" (kind_inferred=False)
-       generateContent + capability "audio" -> "audio" (kind_inferred=False)
-    10. generateContent otherwise -> "chat"  (kind_inferred=False)
-    11. Anything else -> "unknown"
-    """
+    """Classify a model into its functional kind. Computed at read time, never stored."""
     actions_lower = {a.lower() for a in supported_actions}
     caps_lower = {c.lower() for c in capabilities}
     id_lower = model_id.lower()
@@ -112,27 +105,21 @@ def derive_capabilities(
     caps: list[str] = []
     actions_lower = {a.lower() for a in supported_actions}
 
-    # generateContent -> text
     if any("generatecontent" in a for a in actions_lower):
         caps.append("text")
 
-    # embedContent -> embeddings
     if any("embedcontent" in a for a in actions_lower):
         caps.append("embeddings")
 
-    # Image generation
     if any(act in a for a in actions_lower for act in ("generateimages", "imagegeneration")):
         caps.append("image")
 
-    # Video generation
     if any(act in a for a in actions_lower for act in ("generatevideos", "videogeneration")):
         caps.append("video")
 
-    # Audio generation / TTS
     if any(act in a for a in actions_lower for act in ("generateaudio", "tts", "synthesizespeech")):
         caps.append("audio")
 
-    # Check model metadata if provided
     if metadata:
         meta_str = str(metadata).lower()
         if "image" in meta_str and "image" not in caps:
@@ -142,7 +129,6 @@ def derive_capabilities(
         if ("audio" in meta_str or "tts" in meta_str) and "audio" not in caps:
             caps.append("audio")
 
-    # Where API gives no information, set to unknown instead of guessing
     if not caps:
         caps = ["unknown"]
 
@@ -159,6 +145,16 @@ class AIProvider(Protocol):
 
     def list_models(self, api_key: str) -> list[ModelInfo]:
         """Discover and return normalized models from upstream provider."""
+        ...
+
+    async def stream_chat(
+        self,
+        api_key: str,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        system_instruction: str | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        """Stream chat completion chunks asynchronously."""
         ...
 
 

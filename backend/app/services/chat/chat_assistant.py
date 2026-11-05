@@ -33,6 +33,7 @@ def create_assistant_message(
         "VALUES (?, ?, ?, 'assistant', '', 'streaming', ?);",
         (msg_id, conv_id, seq, now),
     )
+    conn.commit()
     return {
         "id": msg_id,
         "conversation_id": conv_id,
@@ -93,6 +94,7 @@ def update_assistant_message(
     if status in ("done", "error", "stopped"):
         now = datetime.now(timezone.utc).isoformat()
         conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?;", (now, msg["conversation_id"]))
+    conn.commit()
 
     cur.execute("SELECT * FROM messages WHERE id = ?;", (msg_id,))
     row = cur.fetchone()
