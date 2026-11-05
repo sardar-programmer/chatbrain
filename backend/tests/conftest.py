@@ -91,6 +91,8 @@ class FakeProvider:
         self.stream_error: Exception | None = None
         self.stream_error_after_chunks: int | None = None
         self.recorded_calls: list[dict[str, Any]] = []
+        self.stream_closed: bool = False
+        self.stream_cancelled: bool = False
 
     def validate_key(self, api_key: str) -> bool:
         if self.should_fail_network:
@@ -124,21 +126,27 @@ class FakeProvider:
             raise self.stream_error
 
         count = 0
-        for chunk in self.chunks_to_stream:
-            if self.stream_error and self.stream_error_after_chunks == count:
+        try:
+            for chunk in self.chunks_to_stream:
+                if self.stream_error and self.stream_error_after_chunks == count:
+                    raise self.stream_error
+
+                if self.stream_delay > 0:
+                    await asyncio.sleep(self.stream_delay)
+
+                count += 1
+                if isinstance(chunk, str):
+                    yield StreamChunk(text=chunk)
+                else:
+                    yield chunk
+
+            if self.stream_error and (self.stream_error_after_chunks is None or self.stream_error_after_chunks == count):
                 raise self.stream_error
-
-            if self.stream_delay > 0:
-                await asyncio.sleep(self.stream_delay)
-
-            count += 1
-            if isinstance(chunk, str):
-                yield StreamChunk(text=chunk)
-            else:
-                yield chunk
-
-        if self.stream_error and (self.stream_error_after_chunks is None or self.stream_error_after_chunks == count):
-            raise self.stream_error
+        except (asyncio.CancelledError, GeneratorExit):
+            self.stream_cancelled = True
+            raise
+        finally:
+            self.stream_closed = True
 
 
 @pytest.fixture

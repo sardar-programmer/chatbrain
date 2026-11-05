@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 import logging
 import time
+from typing import Any
 from fastapi import Request
 from app.db.database import create_connection
 from app.errors import ProviderException
@@ -13,7 +14,9 @@ from app.services.ai.provider import StreamChunk, get_ai_provider
 from app.services.chat import chat_store
 from app.services.chat.chat_context import build_chat_context
 from app.services.chat.chat_stream_session import (
+    StreamLockOwner,
     _active_conversations,
+    _active_locks,
     acquire_stream_lock,
     prepare_reply_session,
     release_stream_lock,
@@ -31,19 +34,61 @@ PERSISTENCE_INTERVAL_SECONDS = 0.300
 PING_INTERVAL_SECONDS = 15.0
 
 
+async def _is_client_disconnected(request: Request) -> bool:
+    """Safe check for client disconnect without failing on mock requests."""
+    try:
+        return await request.is_disconnected()
+    except Exception:
+        return False
+
+
+def _finalize_assistant_msg(
+    conn: Any,
+    msg_id: str,
+    text: str,
+    status: str,
+    model_id: str | None,
+    error_code: str | None = None,
+) -> None:
+    """Helper to persist finalized assistant message status and attempt metadata."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    outcome = "success" if status == "done" else status
+    attempts = [{"model_id": model_id, "outcome": outcome, "code": error_code, "at": now_iso}]
+    chat_store.update_assistant_message(
+        conn,
+        msg_id,
+        content=text,
+        status=status,
+        model_used=model_id,
+        error_category=error_code,
+        attempts=attempts,
+    )
+
+
 async def stream_reply_events(
     conv_id: str,
     user_msg_id: str,
     request: Request,
+    owner: StreamLockOwner | None = None,
 ) -> AsyncIterator[str]:
     """Execute streaming generator emitting SSE events and persisting chunks."""
+    if owner is None:
+        owner = _active_locks.get(conv_id)
+    if owner is not None and owner.task is None:
+        try:
+            owner.task = asyncio.current_task()
+        except RuntimeError:
+            pass
+
     conn = create_connection()
     asst_msg_id: str | None = None
     model_id: str | None = None
     full_text = ""
+    message_finalized = False
+    stream_iter: AsyncIterator[StreamChunk] | None = None
+    chunk_task: asyncio.Task[StreamChunk] | None = None
 
     try:
-        # 1. Resolve credentials and model BEFORE creating assistant message
         api_key = load_gemini_key()
         if not api_key:
             yield sse_event("error", {
@@ -67,24 +112,18 @@ async def stream_reply_events(
             return
 
         model_id = model_status["model_id"]
-
-        # 2. Create assistant message in streaming state
         asst_msg = chat_store.create_assistant_message(conn, conv_id)
         asst_msg_id = asst_msg["id"]
         yield sse_event("message_created", {
             "user_message_id": user_msg_id,
             "assistant_message_id": asst_msg_id,
         })
-
-        # 3. Status: preparing
         yield sse_event("status", {"phase": "preparing", "model_id": model_id, "text": "Preparing your message"})
 
         conv = chat_store.get_conversation(conn, conv_id)
         context = build_chat_context(conv["messages"] if conv else [])
 
-        # 4. Status: connecting
         yield sse_event("status", {"phase": "connecting", "model_id": model_id, "text": f"Connecting to {model_id}"})
-
         provider = get_ai_provider()
         stream_iter = aiter(provider.stream_chat(
             api_key=api_key,
@@ -92,8 +131,6 @@ async def stream_reply_events(
             messages=context,
             system_instruction=SYSTEM_PROMPT,
         ))
-
-        # 5. Status: waiting_first_token
         yield sse_event("status", {
             "phase": "waiting_first_token",
             "model_id": model_id,
@@ -104,7 +141,7 @@ async def stream_reply_events(
         last_save_mono = time.monotonic()
 
         while True:
-            if await request.is_disconnected():
+            if await _is_client_disconnected(request):
                 raise asyncio.CancelledError("Client disconnected")
 
             timeout = FIRST_CHUNK_TIMEOUT_SECONDS if is_first else IDLE_CHUNK_TIMEOUT_SECONDS
@@ -126,12 +163,12 @@ async def stream_reply_events(
                         chunk = chunk_task.result()
                         break
 
-                    if await request.is_disconnected():
+                    if await _is_client_disconnected(request):
                         chunk_task.cancel()
                         raise asyncio.CancelledError("Client disconnected")
                     yield ": ping\n\n"
-            except asyncio.CancelledError:
-                if not chunk_task.done():
+            except (asyncio.CancelledError, GeneratorExit):
+                if chunk_task and not chunk_task.done():
                     chunk_task.cancel()
                 raise
 
@@ -157,51 +194,59 @@ async def stream_reply_events(
                     last_save_mono = now_mono
 
     except StopAsyncIteration:
-        if asst_msg_id:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            chat_store.update_assistant_message(
-                conn,
-                asst_msg_id,
-                content=full_text,
-                status="done",
-                model_used=model_id,
-                attempts=[{"model_id": model_id, "outcome": "success", "code": None, "at": now_iso}],
-            )
+        if asst_msg_id and not message_finalized:
+            message_finalized = True
+            _finalize_assistant_msg(conn, asst_msg_id, full_text, "done", model_id)
             yield sse_event("done", {"message_id": asst_msg_id, "status": "done", "model_used": model_id})
 
+    except GeneratorExit:
+        if asst_msg_id and not message_finalized:
+            message_finalized = True
+            _finalize_assistant_msg(conn, asst_msg_id, full_text, "stopped", model_id, "stopped")
+        raise
+
     except asyncio.CancelledError:
-        if asst_msg_id:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            chat_store.update_assistant_message(
-                conn,
-                asst_msg_id,
-                content=full_text,
-                status="stopped",
-                model_used=model_id,
-                attempts=[{"model_id": model_id, "outcome": "stopped", "code": "stopped", "at": now_iso}],
-            )
+        if asst_msg_id and not message_finalized:
+            message_finalized = True
+            _finalize_assistant_msg(conn, asst_msg_id, full_text, "stopped", model_id, "stopped")
+        try:
             yield sse_event("stopped", {"message_id": asst_msg_id})
+        except (GeneratorExit, RuntimeError):
+            pass
 
     except Exception as exc:
-        classified = classify_provider_error(exc)
-        if asst_msg_id:
-            now_iso = datetime.now(timezone.utc).isoformat()
-            chat_store.update_assistant_message(
-                conn,
-                asst_msg_id,
-                content=full_text,
-                status="error",
-                model_used=model_id,
-                error_category=classified.code,
-                attempts=[{"model_id": model_id, "outcome": "error", "code": classified.code, "at": now_iso}],
-            )
-        yield sse_event("error", {
-            "category": "provider",
-            "code": classified.code,
-            "message": classified.message,
-            "retryable": classified.retryable,
-            "message_id": asst_msg_id,
-        })
+        if asst_msg_id and not message_finalized:
+            message_finalized = True
+            classified = classify_provider_error(exc)
+            _finalize_assistant_msg(conn, asst_msg_id, full_text, "error", model_id, classified.code)
+            yield sse_event("error", {
+                "category": "provider",
+                "code": classified.code,
+                "message": classified.message,
+                "retryable": classified.retryable,
+                "message_id": asst_msg_id,
+            })
+
     finally:
-        conn.close()
-        await release_stream_lock(conv_id)
+        if asst_msg_id and not message_finalized:
+            message_finalized = True
+            try:
+                _finalize_assistant_msg(conn, asst_msg_id, full_text, "stopped", model_id, "stopped")
+            except Exception:
+                pass
+
+        release_stream_lock(conv_id, owner)
+
+        if chunk_task and not chunk_task.done():
+            chunk_task.cancel()
+
+        if stream_iter is not None and hasattr(stream_iter, "aclose"):
+            try:
+                await asyncio.shield(stream_iter.aclose())
+            except Exception:
+                pass
+
+        try:
+            conn.close()
+        except Exception:
+            pass

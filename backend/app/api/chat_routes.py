@@ -168,19 +168,23 @@ async def reply_conversation(
     if not conv:
         raise NotFoundException("Conversation not found")
 
-    await acquire_stream_lock(valid_id)
+    owner = acquire_stream_lock(valid_id)
     try:
         user_msg_id = prepare_reply_session(conn, valid_id, content, regenerate)
     except Exception:
-        await release_stream_lock(valid_id)
+        release_stream_lock(valid_id, owner)
         raise
 
+    gen = stream_reply_events(
+        conv_id=valid_id,
+        user_msg_id=user_msg_id,
+        request=request,
+        owner=owner,
+    )
+    owner.set_generator(gen)
+
     return StreamingResponse(
-        stream_reply_events(
-            conv_id=valid_id,
-            user_msg_id=user_msg_id,
-            request=request,
-        ),
+        gen,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
