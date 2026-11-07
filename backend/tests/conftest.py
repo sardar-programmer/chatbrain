@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator, Generator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import pytest
@@ -11,12 +12,14 @@ from app.db.migrations import run_migrations
 from app.errors import ProviderException
 from app.main import app
 from app.security import TOKEN_HEADER_NAME
+from app.services.ai.model_health import ModelHealthStore, set_health_store
 from app.services.ai.provider import (
     ModelInfo,
     StreamChunk,
     derive_capabilities,
     set_ai_provider,
 )
+from app.services.chat.failover_config import FailoverConfig, set_failover_config
 
 
 def _m(
@@ -45,11 +48,18 @@ def _m(
     )
 
 
-# Canonical fixture list — mirrors all kinds required by M1.2b tests
 FIXTURE_MODELS: list[ModelInfo] = [
     _m(
         "gemini-2.5-flash",
         "Gemini 2.5 Flash",
+        ["generateContent", "countTokens"],
+        ["text"],
+        input_token_limit=1048576,
+        output_token_limit=8192,
+    ),
+    _m(
+        "gemini-2.5-pro",
+        "Gemini 2.5 Pro",
         ["generateContent", "countTokens"],
         ["text"],
         input_token_limit=1048576,
@@ -67,6 +77,18 @@ FIXTURE_MODELS: list[ModelInfo] = [
     _m("aqa-model-001", "AQA Model", ["generateAnswer"]),
     _m("future-custom-model", "Future Custom Model", []),
 ]
+
+
+@dataclass
+class ModelScript:
+    """Scripted behaviour for a specific model."""
+
+    chunks: list[StreamChunk | str] = field(default_factory=lambda: [StreamChunk(text="Hello from scripted model")])
+    delay: float = 0.0
+    error: Exception | None = None
+    error_after_chunks: int | None = None
+    stream_closed: bool = False
+    stream_cancelled: bool = False
 
 
 class FakeProvider:
@@ -91,6 +113,7 @@ class FakeProvider:
         self.stream_error: Exception | None = None
         self.stream_error_after_chunks: int | None = None
         self.recorded_calls: list[dict[str, Any]] = []
+        self.model_scripts: dict[str, ModelScript] = {}
         self.stream_closed: bool = False
         self.stream_cancelled: bool = False
 
@@ -122,17 +145,23 @@ class FakeProvider:
             "first_role": messages[0]["role"] if messages else None,
         })
 
-        if self.stream_error and self.stream_error_after_chunks is None:
-            raise self.stream_error
+        script = self.model_scripts.get(model_id)
+        chunks = script.chunks if script else self.chunks_to_stream
+        delay = script.delay if script else self.stream_delay
+        error = script.error if script else self.stream_error
+        error_after = script.error_after_chunks if script else self.stream_error_after_chunks
+
+        if error and error_after is None:
+            raise error
 
         count = 0
         try:
-            for chunk in self.chunks_to_stream:
-                if self.stream_error and self.stream_error_after_chunks == count:
-                    raise self.stream_error
+            for chunk in chunks:
+                if error and error_after == count:
+                    raise error
 
-                if self.stream_delay > 0:
-                    await asyncio.sleep(self.stream_delay)
+                if delay > 0:
+                    await asyncio.sleep(delay)
 
                 count += 1
                 if isinstance(chunk, str):
@@ -140,13 +169,17 @@ class FakeProvider:
                 else:
                     yield chunk
 
-            if self.stream_error and (self.stream_error_after_chunks is None or self.stream_error_after_chunks == count):
-                raise self.stream_error
+            if error and (error_after is None or error_after == count):
+                raise error
         except (asyncio.CancelledError, GeneratorExit):
             self.stream_cancelled = True
+            if script:
+                script.stream_cancelled = True
             raise
         finally:
             self.stream_closed = True
+            if script:
+                script.stream_closed = True
 
 
 @pytest.fixture
@@ -175,10 +208,14 @@ def setup_test_env(
 
     run_migrations(test_db)
     set_ai_provider(fake_provider)
+    set_health_store(ModelHealthStore())
+    set_failover_config(FailoverConfig())
 
     yield
 
     set_ai_provider(None)
+    set_health_store(None)
+    set_failover_config(FailoverConfig())
 
 
 @pytest.fixture

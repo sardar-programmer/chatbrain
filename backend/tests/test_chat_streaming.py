@@ -1,4 +1,4 @@
-"""Integration tests for Chat streaming endpoint /api/v1/conversations/{id}/reply (M1.3b)."""
+"""Tests for real Gemini streaming with Server-Sent Events (SSE) (M1.3b/M1.3c)."""
 
 import json
 from typing import Any
@@ -13,30 +13,33 @@ from tests.conftest import FIXTURE_MODELS, FakeProvider
 
 
 def parse_sse(text: str) -> list[tuple[str, dict[str, Any]]]:
-    """Parse raw SSE response into (event_name, data_dict) tuples."""
-    events = []
-    blocks = text.split("\n\n")
+    """Parse raw SSE text into list of (event_type, json_data) tuples."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    blocks = [b.strip() for b in text.strip().split("\n\n") if b.strip()]
     for block in blocks:
-        event_type = None
-        data = None
-        for line in block.split("\n"):
-            line = line.strip()
+        if block.startswith(": ping"):
+            continue
+        lines = block.split("\n")
+        event_name = "message"
+        data_str = ""
+        for line in lines:
             if line.startswith("event:"):
-                event_type = line[len("event:"):].strip()
+                event_name = line.split(":", 1)[1].strip()
             elif line.startswith("data:"):
-                raw_json = line[len("data:"):].strip()
-                if raw_json:
-                    data = json.loads(raw_json)
-        if event_type:
-            events.append((event_type, data or {}))
+                data_str = line.split(":", 1)[1].strip()
+        if data_str:
+            try:
+                events.append((event_name, json.loads(data_str)))
+            except json.JSONDecodeError:
+                pass
     return events
 
 
 def setup_chat(conn: Any) -> tuple[str, str]:
-    """Helper to save Gemini key, set default model, and create a conversation."""
+    """Helper to configure API key, models, default model, and conversation."""
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
+    set_default_chat_model(conn, "gemini-2.5-flash", force=False)
     conv = chat_store.create_conversation(conn, "Stream Test")
     return conv["id"], "gemini-2.5-flash"
 
@@ -69,12 +72,16 @@ def test_normal_stream_flow_and_phases(
     assert names[0] == "message_created"
     assert names[1] == "status"
     assert events[1][1]["phase"] == "preparing"
+    assert "model_id" not in events[1][1]
     assert names[2] == "status"
     assert events[2][1]["phase"] == "connecting"
+    assert "model_id" not in events[2][1]
     assert names[3] == "status"
     assert events[3][1]["phase"] == "waiting_first_token"
+    assert "model_id" not in events[3][1]
     assert names[4] == "status"
     assert events[4][1]["phase"] == "writing"
+    assert "model_id" not in events[4][1]
 
     # 2. Deltas joined equal saved content
     deltas = [e[1]["text"] for e in events if e[0] == "delta"]
@@ -84,7 +91,7 @@ def test_normal_stream_flow_and_phases(
     # 3. Done event
     done_event = [e[1] for e in events if e[0] == "done"][0]
     assert done_event["status"] == "done"
-    assert done_event["model_used"] == model_id
+    assert "model_used" not in done_event
 
     # 4. DB verification
     conv = chat_store.get_conversation(conn, conv_id)
@@ -129,7 +136,7 @@ def test_missing_key_or_invalid_model_emits_error_before_assistant_msg(
     assert len(conv_db["messages"]) == 1
     assert conv_db["messages"][0]["role"] == "user"
 
-    # B. Key present, but no default model chosen
+    # B. Key present, but empty pool (no chat model discovered)
     save_gemini_key("valid-secret-key-1234567890")
     res_no_model = client.post(
         f"/api/v1/conversations/{conv['id']}/reply",
@@ -139,6 +146,7 @@ def test_missing_key_or_invalid_model_emits_error_before_assistant_msg(
     events_no_model = parse_sse(res_no_model.text)
     assert events_no_model[0][0] == "error"
     assert events_no_model[0][1]["category"] == "model"
+    assert "No chat model is available yet" in events_no_model[0][1]["message"]
 
 
 def test_reply_validation_without_content(
@@ -155,6 +163,7 @@ def test_reply_validation_without_content(
         headers=headers,
     )
     assert res_empty.status_code == 422
+    assert res_empty.json()["error"]["category"] == "validation"
 
 
 def test_regenerate_replaces_last_assistant_message(
@@ -165,28 +174,35 @@ def test_regenerate_replaces_last_assistant_message(
     conn = create_connection()
     conv_id, _ = setup_chat(conn)
 
-    # First turn
+    # Initial reply
     fake_provider.chunks_to_stream = [StreamChunk(text="Initial answer")]
-    client.post(
+    res1 = client.post(
         f"/api/v1/conversations/{conv_id}/reply",
-        json={"content": "Question"},
+        json={"content": "Initial question"},
         headers=headers,
     )
+    assert res1.status_code == 200
+
+    conv1 = chat_store.get_conversation(conn, conv_id)
+    assert conv1 is not None
+    first_asst_id = conv1["messages"][-1]["id"]
+    assert conv1["messages"][-1]["content"] == "Initial answer"
 
     # Regenerate
-    fake_provider.chunks_to_stream = [StreamChunk(text="Regenerated answer")]
-    res_regen = client.post(
+    fake_provider.chunks_to_stream = [StreamChunk(text="New regenerated answer")]
+    res2 = client.post(
         f"/api/v1/conversations/{conv_id}/reply",
         json={"regenerate": True},
         headers=headers,
     )
-    events = parse_sse(res_regen.text)
-    assert any(e[0] == "done" for e in events)
+    assert res2.status_code == 200
 
-    conv = chat_store.get_conversation(conn, conv_id)
-    assert conv is not None
-    assert len(conv["messages"]) == 2  # still 1 user, 1 assistant
-    assert conv["messages"][1]["content"] == "Regenerated answer"
+    conv2 = chat_store.get_conversation(conn, conv_id)
+    assert conv2 is not None
+    assert len(conv2["messages"]) == 2
+    second_asst = conv2["messages"][-1]
+    assert second_asst["id"] != first_asst_id
+    assert second_asst["content"] == "New regenerated answer"
 
 
 def test_mid_stream_provider_error_saves_partial_and_emits_error(
@@ -224,4 +240,3 @@ def test_mid_stream_provider_error_saves_partial_and_emits_error(
     assert asst_msg["status"] == "error"
     assert asst_msg["content"] == "First chunk second chunk "
     assert asst_msg["error_category"] == "quota"
-

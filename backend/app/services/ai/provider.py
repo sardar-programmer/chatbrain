@@ -168,8 +168,9 @@ def get_ai_provider() -> AIProvider:
         return _provider_instance
 
     from app.services.ai.gemini_provider import GeminiProvider
+    from app.services.ai.dev_fault_wrapper import wrap_provider_if_dev
 
-    return GeminiProvider()
+    return wrap_provider_if_dev(GeminiProvider())
 
 
 def set_ai_provider(provider: AIProvider | None) -> None:

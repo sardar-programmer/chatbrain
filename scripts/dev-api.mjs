@@ -28,7 +28,11 @@ const proc = spawn(
   {
     stdio: 'inherit',
     cwd: backendDir,
-    shell: false
+    shell: false,
+    env: {
+      ...process.env,
+      CHATBRAIN_ENV: 'dev',
+    },
   }
 );
 

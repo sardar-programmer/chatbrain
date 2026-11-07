@@ -83,6 +83,9 @@ def test_lock_released_after_first_chunk_timeout(
 
     monkeypatch.setattr(streamer, "FIRST_CHUNK_TIMEOUT_SECONDS", 30.0)
     fake_provider.stream_delay = 0.0
+    from app.services.ai.model_health import get_health_store
+    for h in get_health_store().all().values():
+        h.cooldown_until = None
     res2 = client.post(
         f"/api/v1/conversations/{conv_id}/reply",
         json={"content": "Next turn"},

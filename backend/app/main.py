@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.chat_routes import router as chat_router
+from app.api.health_routes import router as health_router
+from app.api.models_routes import router as models_router
 from app.api.routes import router
 from app.config import get_settings
 from app.db.database import create_connection
@@ -18,6 +20,7 @@ from app.db.migrations import run_migrations
 from app.errors import ChatBrainException
 from app.logging_config import setup_logging
 from app.security import TOKEN_HEADER_NAME, get_startup_token, verify_host_header
+from app.services.ai.model_health import get_health_store
 from app.services.chat.chat_store import (
     purge_old_soft_deleted_conversations,
     recover_interrupted_messages,
@@ -38,17 +41,24 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             purged = purge_old_soft_deleted_conversations(conn)
             recovered = recover_interrupted_messages(conn)
+            get_health_store().load_from_db(conn)
             logger.info(
-                "Startup chat cleanup: purged %d old soft-deleted, recovered %d messages",
+                "Startup chat cleanup: purged %d old soft-deleted, recovered %d messages; health store loaded",
                 purged,
                 recovered,
             )
         finally:
             conn.close()
     except Exception as exc:
-        logger.error("Startup chat cleanup failed: %s", exc)
+        logger.error("Startup initialization failed: %s", exc)
+
     yield
+
     logger.info("Shutting down Chat-Brain backend.")
+    try:
+        get_health_store().persist_all()
+    except Exception as exc:
+        logger.error("Error persisting model health on shutdown: %s", exc)
 
 
 settings = get_settings()
@@ -148,4 +158,6 @@ async def generic_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 
 
 app.include_router(router)
+app.include_router(models_router)
+app.include_router(health_router)
 app.include_router(chat_router)
