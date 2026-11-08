@@ -147,6 +147,14 @@ class ModelHealthStore:
                 self._dirty_keys.add(rec.model_id)
         self.persist_all(conn)
 
+    def reset(self, conn: sqlite3.Connection | None = None) -> None:
+        """Clear all in-memory health stats and SQLite model_health table rows."""
+        self._records.clear()
+        self._dirty_keys.clear()
+        if conn is not None:
+            conn.execute("DELETE FROM model_health;")
+            conn.commit()
+
     def load_from_db(self, conn: sqlite3.Connection) -> None:
         """Load health state from SQLite model_health table."""
         cursor = conn.cursor()
@@ -188,31 +196,19 @@ class ModelHealthStore:
         try:
             for rec in to_save:
                 active_conn.execute(
-                    """
-                    INSERT INTO model_health (
+                    """INSERT INTO model_health (
                         model_id, successes, failures, ttft_ms_ewma, last_success_at,
                         last_failure_at, last_error_code, consecutive_failures, cooldown_until
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(model_id) DO UPDATE SET
-                        successes = excluded.successes,
-                        failures = excluded.failures,
-                        ttft_ms_ewma = excluded.ttft_ms_ewma,
-                        last_success_at = excluded.last_success_at,
-                        last_failure_at = excluded.last_failure_at,
-                        last_error_code = excluded.last_error_code,
-                        consecutive_failures = excluded.consecutive_failures,
-                        cooldown_until = excluded.cooldown_until;
-                    """,
+                        successes = excluded.successes, failures = excluded.failures,
+                        ttft_ms_ewma = excluded.ttft_ms_ewma, last_success_at = excluded.last_success_at,
+                        last_failure_at = excluded.last_failure_at, last_error_code = excluded.last_error_code,
+                        consecutive_failures = excluded.consecutive_failures, cooldown_until = excluded.cooldown_until;""",
                     (
-                        rec.model_id,
-                        rec.successes,
-                        rec.failures,
-                        rec.ttft_ms_ewma,
-                        rec.last_success_at,
-                        rec.last_failure_at,
-                        rec.last_error_code,
-                        rec.consecutive_failures,
-                        rec.cooldown_until,
+                        rec.model_id, rec.successes, rec.failures, rec.ttft_ms_ewma,
+                        rec.last_success_at, rec.last_failure_at, rec.last_error_code,
+                        rec.consecutive_failures, rec.cooldown_until,
                     ),
                 )
             active_conn.commit()

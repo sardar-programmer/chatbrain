@@ -1,24 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Info, RefreshCw, Search, X } from 'lucide-react';
+import { Layers, RefreshCw, ShieldCheck } from 'lucide-react';
 import { EmptyState } from '../../components/shared/EmptyState';
 import { HonestBadge } from '../../components/shared/HonestBadge';
 import { Loader } from '../../components/shared/Loader';
 import { PageHeader } from '../../components/shared/PageHeader';
-import { SectionCard } from '../../components/shared/SectionCard';
 import { useToast } from '../../components/shared/Toast';
-import { ModelCard } from './ModelCard';
+import { AutoPoolSection } from './AutoPoolSection';
+import { ModelsDiscoveryList } from './ModelsDiscoveryList';
+import { PreferredModelCard } from './PreferredModelCard';
 import {
   useClearDefaultModelMutation,
   useSetDefaultModelMutation,
 } from './hooks/useDefaultModel';
 import { useModels, useRefreshModelsMutation } from './hooks/useModels';
-import {
-  KIND_CHIPS,
-  type KindFilterId,
-  countByKind,
-  filterModels,
-} from './modelFilter';
+
+type ModelsTab = 'pool' | 'all';
 
 export const ModelsView: React.FC = () => {
   const { data: modelsData, isLoading, isError } = useModels();
@@ -27,8 +24,7 @@ export const ModelsView: React.FC = () => {
   const clearDefaultMutation = useClearDefaultModelMutation();
   const { showToast } = useToast();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKind, setSelectedKind] = useState<KindFilterId>('chat');
+  const [activeTab, setActiveTab] = useState<ModelsTab>('pool');
 
   const isConnected = Boolean(modelsData?.connected);
   const models = useMemo(() => modelsData?.models ?? [], [modelsData?.models]);
@@ -38,12 +34,6 @@ export const ModelsView: React.FC = () => {
     if (!defaultModelStatus?.model_id) return null;
     return models.find(m => m.id === defaultModelStatus.model_id) ?? null;
   }, [models, defaultModelStatus?.model_id]);
-
-  const counts = useMemo(() => countByKind(models), [models]);
-  const filteredModels = useMemo(
-    () => filterModels(models, searchQuery, selectedKind),
-    [models, searchQuery, selectedKind],
-  );
 
   const handleRefresh = async () => {
     try {
@@ -58,9 +48,9 @@ export const ModelsView: React.FC = () => {
   const handleSetDefault = async (modelId: string) => {
     try {
       await setDefaultMutation.mutateAsync({ modelId });
-      showToast({ message: `Set ${modelId} as default chat model`, type: 'success' });
+      showToast({ message: `Set ${modelId} as preferred model`, type: 'success' });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to set default model';
+      const msg = err instanceof Error ? err.message : 'Failed to set preferred model';
       showToast({ message: msg, type: 'error' });
     }
   };
@@ -68,9 +58,9 @@ export const ModelsView: React.FC = () => {
   const handleClearDefault = async () => {
     try {
       await clearDefaultMutation.mutateAsync();
-      showToast({ message: 'Default chat model cleared', type: 'info' });
+      showToast({ message: 'Preferred model cleared', type: 'info' });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to clear default model';
+      const msg = err instanceof Error ? err.message : 'Failed to clear preferred model';
       showToast({ message: msg, type: 'error' });
     }
   };
@@ -116,7 +106,7 @@ export const ModelsView: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 space-y-6">
       <PageHeader
         title="Models"
-        description="Discovered models from Google GenAI, functional kind classification, and default chat model selection."
+        description="Auto-failover pool controls, speed diagnostics, and model discovery registry."
         badge={<HonestBadge variant="demo" label={`${models.length} discovered`} />}
         actions={
           <div className="flex items-center gap-3">
@@ -142,118 +132,57 @@ export const ModelsView: React.FC = () => {
         </div>
       )}
 
-      {/* Default Chat Model Card */}
-      <SectionCard title="Default Chat Model" noPadding className="p-5">
-        {defaultModelStatus?.model_id ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-serif text-base font-medium text-text-primary">
-                  {defaultModelObj?.display_name || defaultModelStatus.model_id}
-                </span>
-                <span className="font-mono text-xs text-text-secondary">({defaultModelStatus.model_id})</span>
-                {defaultModelStatus.valid ? (
-                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-pill bg-status-success/10 text-status-success border border-status-success/20">
-                    Active Default
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-pill bg-status-warning/10 text-status-warning border border-status-warning/20">
-                    Invalid ({defaultModelStatus.reason || 'issue'})
-                  </span>
-                )}
-              </div>
-              {!defaultModelStatus.valid && (
-                <p className="text-xs text-status-warning">
-                  Warning:{' '}
-                  {defaultModelStatus.reason === 'model_not_found'
-                    ? 'This model is no longer present in your discovered models list.'
-                    : defaultModelStatus.reason === 'not_a_chat_model'
-                      ? 'This model does not report normal chat/text generation capabilities.'
-                      : 'Please choose an active chat model below.'}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={handleClearDefault}
-              disabled={clearDefaultMutation.isPending}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-sidebar-accent transition-colors shrink-0"
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear default
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between text-xs text-text-secondary py-1">
-            <span>No default chat model selected. Choose one from the chat models list below.</span>
-          </div>
-        )}
-      </SectionCard>
+      {/* Preferred Model (Optional) */}
+      <PreferredModelCard
+        defaultModelStatus={defaultModelStatus}
+        defaultModelObj={defaultModelObj}
+        onClearDefault={handleClearDefault}
+        isClearing={clearDefaultMutation.isPending}
+      />
 
-      {/* Filters and Search */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by model ID or display name..."
-              className="w-full rounded-md border border-border bg-sidebar pl-9 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
-            />
-          </div>
-        </div>
+      {/* Tabs navigation */}
+      <div className="flex border-b border-border gap-6 text-sm font-medium">
+        <button
+          type="button"
+          onClick={() => setActiveTab('pool')}
+          className={`flex items-center gap-2 pb-2.5 transition-colors border-b-2 -mb-px text-xs font-medium ${
+            activeTab === 'pool'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Auto pool & speed
+        </button>
 
-        {/* Kind Chips */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {KIND_CHIPS.map(chip => {
-            const count = counts[chip.id] ?? 0;
-            const isSelected = selectedKind === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => setSelectedKind(chip.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-pill text-xs font-medium transition-colors ${
-                  isSelected
-                    ? 'bg-accent text-white'
-                    : 'bg-surface border border-border text-text-secondary hover:bg-sidebar-accent'
-                }`}
-              >
-                <span>{chip.label}</span>
-                <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-text-tertiary'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <p className="text-[11px] text-text-tertiary flex items-center gap-1">
-          <Info className="h-3 w-3 shrink-0" />
-          Chat means the API reports text generation support; it does not rank quality.
-        </p>
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={`flex items-center gap-2 pb-2.5 transition-colors border-b-2 -mb-px text-xs font-medium ${
+            activeTab === 'all'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <Layers className="h-4 w-4" />
+          All discovered models ({models.length})
+        </button>
       </div>
 
-      {/* Models List */}
-      <div className="space-y-2">
-        {filteredModels.length === 0 ? (
-          <div className="rounded-card border border-border bg-surface p-8 text-center text-xs text-text-tertiary">
-            No models match the filter &ldquo;{selectedKind}&rdquo; {searchQuery && `with query &ldquo;${searchQuery}&rdquo;`}.
-          </div>
-        ) : (
-          filteredModels.map(model => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              isDefault={defaultModelStatus?.model_id === model.id}
-              onSetDefault={handleSetDefault}
-              isSettingDefault={setDefaultMutation.isPending}
-            />
-          ))
-        )}
-      </div>
+      {activeTab === 'pool' ? (
+        <AutoPoolSection
+          models={models}
+          preferredModelId={defaultModelStatus?.model_id}
+          lastCheckedTime={lastCheckedStr}
+        />
+      ) : (
+        <ModelsDiscoveryList
+          models={models}
+          defaultModelId={defaultModelStatus?.model_id}
+          onSetDefault={handleSetDefault}
+          isSettingDefault={setDefaultMutation.isPending}
+        />
+      )}
     </div>
   );
 };

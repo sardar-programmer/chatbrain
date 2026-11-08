@@ -20,7 +20,9 @@ from app.schemas.core import (
 )
 from app.security import get_startup_token, verify_token
 from app.services.ai.model_health import get_health_store
+from app.services.ai.model_pool import compute_pool_summary
 from app.services.ai.provider import get_ai_provider
+from app.services.chat.failover_events import get_failover_count_24h
 from app.services.default_model import get_default_chat_model_status
 from app.services.key_store import (
     delete_gemini_key,
@@ -37,6 +39,7 @@ from app.services.settings_store import (
     SETTING_LAST_PROVIDER_ERROR_AT,
     SETTING_LAST_PROVIDER_ERROR_CATEGORY,
     SETTING_LAST_PROVIDER_SUCCESS_AT,
+    get_auto_pool_excluded,
     get_setting,
     put_setting,
     record_provider_error,
@@ -189,6 +192,10 @@ def get_system_status(
         last_error = {"category": err_cat, "at": err_at}
 
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    health_store = get_health_store()
+    excluded = get_auto_pool_excluded(conn)
+    pool_summary = compute_pool_summary(cached, health_store.all(), excluded=excluded)
+    failover_count = get_failover_count_24h(conn)
 
     return {
         "api": "ok",
@@ -200,4 +207,6 @@ def get_system_status(
         "default_chat_model": dcm,
         "last_provider_success_at": last_success,
         "last_provider_error": last_error,
+        "pool_summary": pool_summary,
+        "failover_count_24h": failover_count,
     }

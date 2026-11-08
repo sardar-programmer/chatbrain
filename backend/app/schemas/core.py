@@ -70,6 +70,37 @@ class ProviderErrorInfo(BaseModel):
     at: str
 
 
+class PoolSummary(BaseModel):
+    chat_model_count: int
+    ready_count: int
+    cooling_count: int
+    excluded_count: int
+
+
+class PoolResponse(BaseModel):
+    excluded: list[str]
+    chat_model_count: int
+    ready_count: int
+    cooling_count: int
+    excluded_count: int
+
+
+class PoolPatchPayload(BaseModel):
+    excluded: bool
+
+
+class HealthResetResponse(BaseModel):
+    reset: bool
+
+
+class FailoverEventItem(BaseModel):
+    at: str
+    from_model: str
+    to_model: str | None = None
+    code: str
+    round: int
+
+
 class StatusResponse(BaseModel):
     api: str
     db: bool
@@ -80,3 +111,5 @@ class StatusResponse(BaseModel):
     default_chat_model: DefaultChatModelStatus | None = None
     last_provider_success_at: str | None = None
     last_provider_error: ProviderErrorInfo | None = None
+    pool_summary: PoolSummary | None = None
+    failover_count_24h: int = 0

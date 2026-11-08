@@ -3,16 +3,17 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  KeyRound,
   Layers,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
-  Terminal,
 } from 'lucide-react';
 import { HonestBadge } from '../../components/shared/HonestBadge';
 import { Loader } from '../../components/shared/Loader';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { SectionCard } from '../../components/shared/SectionCard';
+import { RecentFailoversCard } from './RecentFailoversCard';
+import { StatusDiagnosticsGrid } from './StatusDiagnosticsGrid';
 import { useStatus } from './hooks/useStatus';
 
 function formatTimestamp(iso: string | null | undefined): string {
@@ -67,7 +68,9 @@ export const StatusView: React.FC = () => {
             Backend not reachable
           </h3>
           <p className="text-xs text-text-secondary max-w-sm mx-auto">
-            Backend not reachable. Start it with <code className="bg-sidebar px-1 py-0.5 rounded font-mono">npm run dev</code> or <code className="bg-sidebar px-1 py-0.5 rounded font-mono">npm run dev:api</code>.
+            Backend not reachable. Start it with{' '}
+            <code className="bg-sidebar px-1 py-0.5 rounded font-mono">npm run dev</code> or{' '}
+            <code className="bg-sidebar px-1 py-0.5 rounded font-mono">npm run dev:api</code>.
           </p>
           <button
             type="button"
@@ -80,60 +83,40 @@ export const StatusView: React.FC = () => {
       ) : (
         <>
           {/* Diagnostic Status Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Backend API */}
-            <SectionCard title="Backend API" noPadding className="p-4">
-              <div className="flex items-center gap-2 mt-1">
-                <span className="h-2 w-2 rounded-full bg-status-success" />
-                <span className="text-xs font-medium text-text-primary">Connected</span>
+          <StatusDiagnosticsGrid status={status} />
+
+          {/* Model & Auto Pool Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Auto Pool Card */}
+            <SectionCard title="Auto Pool" noPadding className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-2xl font-serif font-medium text-text-primary">
+                    {status.pool_summary?.ready_count ?? 0}
+                    <span className="text-xs font-normal text-text-secondary ml-1">ready</span>
+                  </div>
+                  <div className="text-xs text-text-secondary mt-1 flex flex-wrap gap-1">
+                    <span className="text-status-warning font-medium">
+                      {status.pool_summary?.cooling_count ?? 0} cooling
+                    </span>
+                    <span>·</span>
+                    <span className="text-text-tertiary">
+                      {status.pool_summary?.excluded_count ?? 0} excluded
+                    </span>
+                  </div>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-card bg-sidebar text-accent">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
               </div>
-              <p className="text-[11px] font-mono text-text-tertiary mt-1">127.0.0.1:8000</p>
+              <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-text-tertiary">
+                Failovers (24h):{' '}
+                <strong className="text-text-secondary font-mono font-normal">
+                  {status.failover_count_24h ?? 0}
+                </strong>
+              </div>
             </SectionCard>
 
-            {/* Database Health */}
-            <SectionCard title="SQLite Database" noPadding className="p-4">
-              <div className="flex items-center gap-2 mt-1">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    status.db ? 'bg-status-success' : 'bg-status-error'
-                  }`}
-                />
-                <span className="text-xs font-medium text-text-primary">
-                  {status.db ? 'Healthy (WAL)' : 'Unavailable'}
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-text-tertiary mt-1">data/app.db</p>
-            </SectionCard>
-
-            {/* Python Runtime */}
-            <SectionCard title="Python Runtime" noPadding className="p-4">
-              <div className="flex items-center gap-2 mt-1">
-                <Terminal className="h-3.5 w-3.5 text-accent" />
-                <span className="text-xs font-mono font-medium text-text-primary">
-                  v{status.python_version}
-                </span>
-              </div>
-              <p className="text-[11px] text-text-tertiary mt-1">FastAPI Engine</p>
-            </SectionCard>
-
-            {/* Gemini Key Configured */}
-            <SectionCard title="Gemini Credential" noPadding className="p-4">
-              <div className="flex items-center gap-2 mt-1">
-                <KeyRound
-                  className={`h-3.5 w-3.5 ${
-                    status.key_configured ? 'text-status-success' : 'text-text-tertiary'
-                  }`}
-                />
-                <span className="text-xs font-medium text-text-primary">
-                  {status.key_configured ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-              <p className="text-[11px] text-text-tertiary mt-1">Write-only (data/secrets)</p>
-            </SectionCard>
-          </div>
-
-          {/* Model & Provider Operational Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Models Discovered */}
             <SectionCard title="Models Discovery" noPadding className="p-5">
               <div className="flex items-start justify-between">
@@ -154,32 +137,35 @@ export const StatusView: React.FC = () => {
               </div>
             </SectionCard>
 
-            {/* Default Chat Model */}
-            <SectionCard title="Default Chat Model" noPadding className="p-5">
+            {/* Preferred Model (Optional) */}
+            <SectionCard title="Preferred model (optional)" noPadding className="p-5">
               <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-base font-serif font-medium text-text-primary truncate max-w-[200px]">
+                <div className="min-w-0 pr-2">
+                  <div className="text-base font-serif font-medium text-text-primary truncate">
                     {status.default_chat_model?.model_id || 'None selected'}
                   </div>
-                  <p className="text-xs text-text-secondary mt-1">
+                  <p className="text-xs text-text-secondary mt-1 truncate">
                     {status.default_chat_model?.model_id
                       ? status.default_chat_model.valid
                         ? 'Active and verified'
                         : `Invalid (${status.default_chat_model.reason || 'issue'})`
-                      : 'No default model configured'}
+                      : 'Fastest available model will be used'}
                   </p>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-card bg-sidebar text-accent">
+                <div className="flex h-9 w-9 items-center justify-center rounded-card bg-sidebar text-accent shrink-0">
                   <Sparkles className="h-4 w-4" />
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-text-tertiary">
+              <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-text-tertiary truncate">
                 {status.default_chat_model?.model_id
-                  ? 'Selected via Models configuration'
-                  : 'Select a default model in Models page'}
+                  ? 'Configured in Models'
+                  : 'Optional configuration'}
               </div>
             </SectionCard>
           </div>
+
+          {/* Recent Failovers */}
+          <RecentFailoversCard />
 
           {/* Provider Call Health Logs */}
           <SectionCard

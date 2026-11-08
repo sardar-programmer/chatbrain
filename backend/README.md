@@ -34,6 +34,7 @@ backend/
 │   │   ├── chat_routes.py        # Endpoints: /conversations, /messages, /reply (streaming)
 │   │   ├── health_routes.py      # Endpoints: /models/health, /models/health/scan
 │   │   ├── models_routes.py      # Endpoints: /models, /models/refresh, /models/default
+│   │   ├── pool_routes.py        # Endpoints: /models/pool, /models/health/reset, /models/failovers
 │   │   └── routes.py             # Endpoints: /health, /bootstrap, /settings, /credentials, /status
 │   ├── db/
 │   │   ├── migrations/           # 001_settings.sql .. 004_model_health_failover.sql
@@ -88,7 +89,8 @@ backend/
 │   ├── test_failover_streaming.py# Failover routing & non-retryable blocks tests
 │   ├── test_model_health_api.py  # /models/health & /models/health/scan tests
 │   ├── test_model_health_pool.py # Health store & model pool ranking tests
-│   └── test_model_kind_status.py # Model kind classifier & status tests
+│   ├── test_model_kind_status.py # Model kind classifier & status tests
+│   └── test_model_pool_api.py    # Auto-pool controls, health reset, failovers tests
 ├── requirements.txt              # Pinned backend dependencies
 └── README.md
 ```
@@ -114,7 +116,11 @@ backend/
 | `DELETE`| `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Clears the default chat model selection. |
 | `GET` | `/api/v1/models/health` | Yes (`X-ChatBrain-Token`) | Returns metrics, EWMA TTFT, cooldowns, and ranked candidates pool. |
 | `POST`| `/api/v1/models/health/scan` | Yes (`X-ChatBrain-Token`) | Active health scan across candidate chat models (concurrency 3, early quota stop). |
-| `GET` | `/api/v1/status` | Yes (`X-ChatBrain-Token`) | System status (health, DB, Python, key status, models count, last success/error). |
+| `POST`| `/api/v1/models/health/reset` | Yes (`X-ChatBrain-Token`) | Resets all model health stats, EWMA TTFT, and cooldowns. |
+| `GET` | `/api/v1/models/pool` | Yes (`X-ChatBrain-Token`) | Returns auto-pool excluded list and model status counts. |
+| `PATCH`| `/api/v1/models/pool/{id}` | Yes (`X-ChatBrain-Token`) | Exclude or include a chat model in the auto-failover pool. |
+| `GET` | `/api/v1/models/failovers` | Yes (`X-ChatBrain-Token`) | List recent failover events (newest first, limit cap 100). |
+| `GET` | `/api/v1/status` | Yes (`X-ChatBrain-Token`) | System status (health, DB, Python, key, models, pool_summary, failover_count_24h). |
 | `GET` | `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | List conversations ordered by pinned DESC, updated_at DESC (search & cursor pagination). |
 | `POST`| `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | Create conversation with optional title. |
 | `GET` | `/api/v1/conversations/{id}` | Yes (`X-ChatBrain-Token`) | Retrieve conversation with messages ordered by seq. |

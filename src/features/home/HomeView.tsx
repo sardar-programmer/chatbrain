@@ -24,6 +24,10 @@ export const HomeView: React.FC = () => {
     if (status.key_configured) {
       parts.push('Gemini key configured');
       parts.push(`${status.models_count} model${status.models_count === 1 ? '' : 's'}`);
+      if (status.pool_summary && typeof status.pool_summary.ready_count === 'number') {
+        const r = status.pool_summary.ready_count;
+        parts.push(`${r} ${r === 1 ? 'model' : 'models'} ready`);
+      }
     } else {
       parts.push('Gemini key not configured');
     }

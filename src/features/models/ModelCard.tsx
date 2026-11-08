@@ -58,7 +58,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             {isDefault && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-pill bg-accent text-white">
                 <Check className="h-3 w-3" />
-                Default
+                Preferred
               </span>
             )}
           </div>
@@ -100,13 +100,13 @@ export const ModelCard: React.FC<ModelCardProps> = ({
               }`}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {isDefault ? 'Current default' : 'Set as default'}
+              {isDefault ? 'Preferred model' : 'Set as preferred'}
             </button>
           ) : (
             <button
               type="button"
               disabled
-              title="Only models classified as 'chat' can be set as default"
+              title="Only models classified as 'chat' can be set as preferred"
               className="inline-flex items-center rounded-md border border-border/50 bg-sidebar/50 px-3 py-1.5 text-xs font-medium text-text-tertiary cursor-not-allowed opacity-60"
             >
               Not a chat model
