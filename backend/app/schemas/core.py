@@ -14,19 +14,6 @@ class BootstrapResponse(BaseModel):
     token: str
 
 
-class SettingPayload(BaseModel):
-    value: str = Field(..., description="String value to store for the given key")
-
-
-class SettingItemResponse(BaseModel):
-    key: str
-    value: str
-
-
-class SettingsResponse(BaseModel):
-    settings: dict[str, str]
-
-
 class GeminiCredentialResponse(BaseModel):
     configured: bool
     hint: str | None = None
@@ -63,53 +50,3 @@ class ModelsListResponse(BaseModel):
 class DefaultModelPayload(BaseModel):
     model_id: str = Field(..., min_length=1)
     force: bool = False
-
-
-class ProviderErrorInfo(BaseModel):
-    category: str
-    at: str
-
-
-class PoolSummary(BaseModel):
-    chat_model_count: int
-    ready_count: int
-    cooling_count: int
-    excluded_count: int
-
-
-class PoolResponse(BaseModel):
-    excluded: list[str]
-    chat_model_count: int
-    ready_count: int
-    cooling_count: int
-    excluded_count: int
-
-
-class PoolPatchPayload(BaseModel):
-    excluded: bool
-
-
-class HealthResetResponse(BaseModel):
-    reset: bool
-
-
-class FailoverEventItem(BaseModel):
-    at: str
-    from_model: str
-    to_model: str | None = None
-    code: str
-    round: int
-
-
-class StatusResponse(BaseModel):
-    api: str
-    db: bool
-    python_version: str
-    key_configured: bool
-    models_count: int
-    models_last_checked: str | None = None
-    default_chat_model: DefaultChatModelStatus | None = None
-    last_provider_success_at: str | None = None
-    last_provider_error: ProviderErrorInfo | None = None
-    pool_summary: PoolSummary | None = None
-    failover_count_24h: int = 0

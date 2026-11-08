@@ -24,11 +24,6 @@ from app.services.model_registry import (
     get_cached_models,
     save_cached_models,
 )
-from app.services.settings_store import (
-    record_provider_error,
-    record_provider_success,
-)
-
 router = APIRouter(prefix="/api/v1")
 
 
@@ -65,12 +60,9 @@ def refresh_models(
     provider = get_ai_provider()
     try:
         discovered = provider.list_models(key)
-        record_provider_success(conn)
     except ProviderException:
-        record_provider_error(conn, "provider")
         raise
     except Exception as exc:
-        record_provider_error(conn, "internal")
         raise ProviderException("Unexpected error fetching models", status_code=502) from exc
 
     save_cached_models(conn, discovered)

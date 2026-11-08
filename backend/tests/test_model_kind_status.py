@@ -1,4 +1,4 @@
-"""Tests for M1.2b: model kind, default chat model, status endpoint."""
+"""Tests for M1.2b: model kind and default chat model."""
 
 from fastapi.testclient import TestClient
 import pytest
@@ -217,72 +217,3 @@ def test_default_model_invalid_after_refresh_without_model(
     assert data["model_id"] == "gemini-2.5-flash"  # value preserved
     assert data["valid"] is False
     assert data["reason"] == "model_not_found"
-
-
-# ---------------------------------------------------------------------------
-# Status endpoint
-# ---------------------------------------------------------------------------
-
-def test_status_requires_token(client: TestClient) -> None:
-    """GET /api/v1/status returns 401 without a token."""
-    res = client.get("/api/v1/status")
-    assert res.status_code == 401
-
-
-def test_status_never_contains_key(client: TestClient, auth_headers: dict[str, str]) -> None:
-    """Status response must never contain the raw API key."""
-    _setup_key_and_refresh(client, auth_headers)
-    res = client.get("/api/v1/status", headers=auth_headers)
-    assert res.status_code == 200
-    assert "valid-secret-key-1234567890" not in res.text
-    data = res.json()
-    assert data["key_configured"] is True
-
-
-def test_status_shape(client: TestClient, auth_headers: dict[str, str]) -> None:
-    """GET /api/v1/status has the expected top-level fields."""
-    res = client.get("/api/v1/status", headers=auth_headers)
-    assert res.status_code == 200
-    data = res.json()
-    assert data["api"] == "ok"
-    assert isinstance(data["db"], bool)
-    assert isinstance(data["python_version"], str)
-    assert isinstance(data["key_configured"], bool)
-    assert isinstance(data["models_count"], int)
-
-
-def test_status_last_provider_error_stores_only_category_and_timestamp(
-    client: TestClient,
-    auth_headers: dict[str, str],
-    fake_provider: FakeProvider,
-) -> None:
-    """last_provider_error must store only category + at, never message text or key."""
-    fake_provider.should_fail_quota = True
-    # Trigger a provider error
-    client.put("/api/v1/credentials/gemini", json={"api_key": "valid-secret-key-1234567890"}, headers=auth_headers)
-
-    res = client.get("/api/v1/status", headers=auth_headers)
-    data = res.json()
-
-    # If a provider error was recorded it must only have category and at
-    if data["last_provider_error"] is not None:
-        err = data["last_provider_error"]
-        assert set(err.keys()) == {"category", "at"}
-        assert "valid-secret-key-1234567890" not in str(err)
-        # No message field
-        assert "message" not in err
-
-    # Key must never appear anywhere
-    assert "valid-secret-key-1234567890" not in res.text
-
-
-def test_status_last_provider_success_at_recorded(
-    client: TestClient,
-    auth_headers: dict[str, str],
-) -> None:
-    """last_provider_success_at is recorded after a successful test/refresh."""
-    _setup_key_and_refresh(client, auth_headers)
-    client.post("/api/v1/credentials/gemini/test", headers=auth_headers)
-    res = client.get("/api/v1/status", headers=auth_headers)
-    assert res.status_code == 200
-    assert res.json()["last_provider_success_at"] is not None

@@ -1,4 +1,4 @@
-"""Tests for Chat-Brain core endpoints, bootstrap, settings, and host security."""
+"""Tests for Chat-Brain core endpoints, bootstrap, and host security."""
 
 from pathlib import Path
 from fastapi.testclient import TestClient
@@ -26,28 +26,29 @@ def test_bootstrap_returns_token(client: TestClient) -> None:
 
 
 def test_put_without_token_returns_401(client: TestClient) -> None:
-    """PUT /api/v1/settings/{key} without token is rejected with 401."""
-    res = client.put("/api/v1/settings/theme", json={"value": "dark"})
+    """PUT /api/v1/credentials/gemini without token is rejected with 401."""
+    res = client.put("/api/v1/credentials/gemini", json={"api_key": "test-key"})
     assert res.status_code == 401
     err = res.json()
     assert "error" in err
     assert err["error"]["category"] == "auth"
 
 
-def test_put_with_token_works_and_persists(client: TestClient, auth_headers: dict[str, str]) -> None:
-    """PUT /api/v1/settings/{key} with token stores setting and GET retrieves it."""
-    put_res = client.put(
-        "/api/v1/settings/theme",
-        json={"value": "gruvbox-dark"},
-        headers=auth_headers,
-    )
-    assert put_res.status_code == 200
-    assert put_res.json() == {"key": "theme", "value": "gruvbox-dark"}
+def test_get_credentials_with_token_works(client: TestClient, auth_headers: dict[str, str]) -> None:
+    """GET /api/v1/credentials/gemini with token returns credential status."""
+    res = client.get("/api/v1/credentials/gemini", headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "configured" in data
+    assert isinstance(data["configured"], bool)
 
-    get_res = client.get("/api/v1/settings", headers=auth_headers)
-    assert get_res.status_code == 200
-    settings = get_res.json()["settings"]
-    assert settings.get("theme") == "gruvbox-dark"
+
+def test_removed_endpoints_return_404(client: TestClient) -> None:
+    """Removed endpoints must return 404."""
+    assert client.get("/api/v1/status").status_code == 404
+    assert client.get("/api/v1/settings").status_code == 404
+    assert client.get("/api/v1/models/pool").status_code == 404
+    assert client.get("/api/v1/models/failovers").status_code == 404
 
 
 def test_bad_host_rejected(client: TestClient) -> None:

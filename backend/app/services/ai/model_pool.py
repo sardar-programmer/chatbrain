@@ -2,7 +2,6 @@
 
 from datetime import datetime, timezone
 import statistics
-from typing import Any
 from app.services.ai.model_health import ModelHealthRecord
 from app.services.ai.provider import ModelInfo, derive_kind
 
@@ -13,21 +12,16 @@ def rank_candidates(
     models: list[ModelInfo],
     health: dict[str, ModelHealthRecord],
     default_model_id: str | None = None,
-    excluded: list[str] | None = None,
     now: datetime | None = None,
 ) -> list[ModelInfo]:
     """Rank eligible chat candidate models according to speed, health, and cooldown state."""
     current_time = now or datetime.now(timezone.utc)
-    excluded_set = set(excluded or [])
 
-    # 1. Filter chat models not excluded
-    chat_models: list[ModelInfo] = []
-    for m in models:
-        if m.id in excluded_set:
-            continue
-        kind_info = derive_kind(m.id, m.supported_actions, m.capabilities)
-        if kind_info.kind == "chat":
-            chat_models.append(m)
+    # 1. Filter to chat models only
+    chat_models: list[ModelInfo] = [
+        m for m in models
+        if derive_kind(m.id, m.supported_actions, m.capabilities).kind == "chat"
+    ]
 
     if not chat_models:
         return []
@@ -63,11 +57,11 @@ def rank_candidates(
             remaining_available.append(m)
 
     # 5. Compute neutral TTFT (median of known candidate values, or 2000 ms if none known)
-    known_ttfts: list[float] = []
-    for m in available:
-        rec = health.get(m.id)
-        if rec and rec.ttft_ms_ewma is not None:
-            known_ttfts.append(rec.ttft_ms_ewma)
+    known_ttfts: list[float] = [
+        rec.ttft_ms_ewma
+        for m in available
+        if (rec := health.get(m.id)) and rec.ttft_ms_ewma is not None
+    ]
 
     neutral_ttft = statistics.median(known_ttfts) if known_ttfts else DEFAULT_NEUTRAL_TTFT_MS
 
@@ -87,33 +81,3 @@ def rank_candidates(
     if default_model is not None:
         return [default_model] + sorted_remaining
     return sorted_remaining
-
-
-def compute_pool_summary(
-    models: list[ModelInfo],
-    health: dict[str, ModelHealthRecord],
-    excluded: list[str] | None = None,
-    now: datetime | None = None,
-) -> dict[str, int]:
-    """Compute pool counts: chat_model_count, ready_count, cooling_count, excluded_count."""
-    current_time = now or datetime.now(timezone.utc)
-    excluded_set = set(excluded or [])
-
-    chat_models = [
-        m for m in models
-        if derive_kind(m.id, m.supported_actions, m.capabilities).kind == "chat"
-    ]
-    chat_model_count = len(chat_models)
-    excluded_count = sum(1 for m in chat_models if m.id in excluded_set)
-    cooling_count = sum(
-        1 for m in chat_models
-        if m.id not in excluded_set and health.get(m.id) and health[m.id].is_in_cooldown(current_time)
-    )
-    ready_count = chat_model_count - excluded_count - cooling_count
-
-    return {
-        "chat_model_count": chat_model_count,
-        "ready_count": ready_count,
-        "cooling_count": cooling_count,
-        "excluded_count": excluded_count,
-    }

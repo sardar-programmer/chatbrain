@@ -21,7 +21,6 @@ from app.services.chat.failover_stream import finalize_assistant_msg
 from app.services.default_model import get_default_chat_model_status
 from app.services.key_store import load_gemini_key
 from app.services.model_registry import get_cached_models
-from app.services.settings_store import get_auto_pool_excluded
 
 logger = logging.getLogger("chatbrain.chat.streamer")
 
@@ -80,7 +79,6 @@ async def stream_reply_events(
 
         dcm = get_default_chat_model_status(conn, key_configured=True)
         default_model_id = dcm["model_id"] if dcm.get("valid") else None
-        excluded = get_auto_pool_excluded(conn)
 
         asst_msg = chat_store.create_assistant_message(conn, conv_id)
         asst_msg_id = asst_msg["id"]
@@ -104,7 +102,6 @@ async def stream_reply_events(
             context=context,
             all_models=all_models,
             default_model_id=default_model_id,
-            excluded=excluded,
             request=request,
         )
         async for event in failover_gen:

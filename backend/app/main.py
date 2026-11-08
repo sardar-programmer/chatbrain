@@ -13,7 +13,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.chat_routes import router as chat_router
 from app.api.health_routes import router as health_router
 from app.api.models_routes import router as models_router
-from app.api.pool_routes import router as pool_router
 from app.api.routes import router
 from app.config import get_settings
 from app.db.database import create_connection
@@ -161,5 +160,4 @@ async def generic_exception_handler(_: Request, exc: Exception) -> JSONResponse:
 app.include_router(router)
 app.include_router(models_router)
 app.include_router(health_router)
-app.include_router(pool_router)
 app.include_router(chat_router)

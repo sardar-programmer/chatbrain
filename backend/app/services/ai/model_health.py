@@ -147,14 +147,6 @@ class ModelHealthStore:
                 self._dirty_keys.add(rec.model_id)
         self.persist_all(conn)
 
-    def reset(self, conn: sqlite3.Connection | None = None) -> None:
-        """Clear all in-memory health stats and SQLite model_health table rows."""
-        self._records.clear()
-        self._dirty_keys.clear()
-        if conn is not None:
-            conn.execute("DELETE FROM model_health;")
-            conn.commit()
-
     def load_from_db(self, conn: sqlite3.Connection) -> None:
         """Load health state from SQLite model_health table."""
         cursor = conn.cursor()

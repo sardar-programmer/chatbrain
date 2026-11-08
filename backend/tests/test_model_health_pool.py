@@ -137,24 +137,19 @@ def test_rank_candidates_pure_function() -> None:
     }
 
     # 1. Non-chat kinds filtered out
-    ranked = rank_candidates([m_embed, m_flash, m_pro], health, None, [], now)
+    ranked = rank_candidates([m_embed, m_flash, m_pro], health, None, now)
     assert all(m.id != "text-embedding-004" for m in ranked)
 
-    # 2. Excluded setting drops models
-    ranked_ex = rank_candidates([m_flash, m_pro], health, None, ["gemini-2.5-pro"], now)
-    assert len(ranked_ex) == 1
-    assert ranked_ex[0].id == "gemini-2.5-flash"
-
-    # 3. Default model comes first if not cooling
-    ranked_def = rank_candidates([m_flash, m_pro], health, "gemini-2.5-flash", [], now)
+    # 2. Default model comes first if not cooling
+    ranked_def = rank_candidates([m_flash, m_pro], health, "gemini-2.5-flash", now)
     assert ranked_def[0].id == "gemini-2.5-flash"
 
-    # 4. Without default, lowest TTFT comes first
-    ranked_no_def = rank_candidates([m_flash, m_pro], health, None, [], now)
+    # 3. Without default, lowest TTFT comes first
+    ranked_no_def = rank_candidates([m_flash, m_pro], health, None, now)
     assert ranked_no_def[0].id == "gemini-2.5-pro"
     assert ranked_no_def[1].id == "gemini-2.5-flash"
 
-    # 5. Unknown model uses neutral TTFT (median or 2000ms)
+    # 4. Unknown model uses neutral TTFT (median or 2000ms)
     m_unknown = ModelInfo(
         id="gemini-unknown-chat",
         display_name="Unknown Chat",
@@ -163,23 +158,23 @@ def test_rank_candidates_pure_function() -> None:
         supported_actions=["generateContent"],
     )
     # Median of [300, 150] is 225.0 ms -> unknown comes after 150 but before 300
-    ranked_unk = rank_candidates([m_flash, m_pro, m_unknown], health, None, [], now)
+    ranked_unk = rank_candidates([m_flash, m_pro, m_unknown], health, None, now)
     ids = [m.id for m in ranked_unk]
     assert ids == ["gemini-2.5-pro", "gemini-unknown-chat", "gemini-2.5-flash"]
 
-    # 6. Model in cooldown dropped unless all cooling
+    # 5. Model in cooldown dropped unless all cooling
     cooling_health = dict(health)
     cooling_health["gemini-2.5-pro"] = ModelHealthRecord(
         model_id="gemini-2.5-pro",
         cooldown_until=(now + timedelta(seconds=60.0)).isoformat(),
     )
-    ranked_cooldown = rank_candidates([m_flash, m_pro], cooling_health, "gemini-2.5-pro", [], now)
+    ranked_cooldown = rank_candidates([m_flash, m_pro], cooling_health, "gemini-2.5-pro", now)
     assert [m.id for m in ranked_cooldown] == ["gemini-2.5-flash"]
 
-    # 7. When ALL models are cooling, return ordered by earliest expiry
+    # 6. When ALL models are cooling, return ordered by earliest expiry
     cooling_health["gemini-2.5-flash"] = ModelHealthRecord(
         model_id="gemini-2.5-flash",
         cooldown_until=(now + timedelta(seconds=120.0)).isoformat(),
     )
-    ranked_all_cooling = rank_candidates([m_flash, m_pro], cooling_health, None, [], now)
+    ranked_all_cooling = rank_candidates([m_flash, m_pro], cooling_health, None, now)
     assert [m.id for m in ranked_all_cooling] == ["gemini-2.5-pro", "gemini-2.5-flash"]

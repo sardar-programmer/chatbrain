@@ -38,7 +38,6 @@ async def execute_failover_reply(
     context: list[dict[str, Any]],
     all_models: list[ModelInfo],
     default_model_id: str | None,
-    excluded: list[str],
     request: Request,
 ) -> AsyncIterator[str]:
     """Execute failover search and hedging across candidate chat models."""
@@ -70,7 +69,7 @@ async def execute_failover_reply(
                 break
 
             now_dt = datetime.now(timezone.utc)
-            candidates = rank_candidates(all_models, health_store.all(), default_model_id, excluded, now_dt)
+            candidates = rank_candidates(all_models, health_store.all(), default_model_id, now_dt)
             if not candidates:
                 break
 

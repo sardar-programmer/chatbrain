@@ -103,24 +103,16 @@ backend/
 |---|---|---|---|
 | `GET` | `/api/v1/health` | No | Returns backend status, version, and DB connectivity. |
 | `GET` | `/api/v1/bootstrap` | No | Returns ephemeral session token for state mutations. |
-| `GET` | `/api/v1/settings` | Yes (`X-ChatBrain-Token`) | Retrieves all stored settings key-value pairs. |
-| `PUT` | `/api/v1/settings/{key}` | Yes (`X-ChatBrain-Token`) | Stores or updates a setting key-value pair. |
 | `GET` | `/api/v1/credentials/gemini` | Yes (`X-ChatBrain-Token`) | Returns `{configured: bool, hint: str \| null}` (4 chars). |
 | `PUT` | `/api/v1/credentials/gemini` | Yes (`X-ChatBrain-Token`) | Validates key upstream, saves write-only, returns hint. |
 | `DELETE`| `/api/v1/credentials/gemini` | Yes (`X-ChatBrain-Token`) | Removes key file and clears cached models from DB. |
 | `POST`| `/api/v1/credentials/gemini/test` | Yes (`X-ChatBrain-Token`) | Tests saved key with provider (no secrets in message). |
-| `POST`| `/api/v1/models/refresh` | Yes (`X-ChatBrain-Token`) | Discovers models from provider and replaces DB cache. |
 | `GET` | `/api/v1/models` | Yes (`X-ChatBrain-Token`) | Returns cached models list with computed `kind` & `kind_inferred`, plus `default_chat_model`. |
+| `POST`| `/api/v1/models/refresh` | Yes (`X-ChatBrain-Token`) | Discovers models from provider and replaces DB cache. |
 | `GET` | `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Returns `{model_id, valid, reason}` for default chat model. |
 | `PUT` | `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Sets default chat model; rejects non-chat unless `force=true`. |
 | `DELETE`| `/api/v1/models/default` | Yes (`X-ChatBrain-Token`) | Clears the default chat model selection. |
 | `GET` | `/api/v1/models/health` | Yes (`X-ChatBrain-Token`) | Returns metrics, EWMA TTFT, cooldowns, and ranked candidates pool. |
-| `POST`| `/api/v1/models/health/scan` | Yes (`X-ChatBrain-Token`) | Active health scan across candidate chat models (concurrency 3, early quota stop). |
-| `POST`| `/api/v1/models/health/reset` | Yes (`X-ChatBrain-Token`) | Resets all model health stats, EWMA TTFT, and cooldowns. |
-| `GET` | `/api/v1/models/pool` | Yes (`X-ChatBrain-Token`) | Returns auto-pool excluded list and model status counts. |
-| `PATCH`| `/api/v1/models/pool/{id}` | Yes (`X-ChatBrain-Token`) | Exclude or include a chat model in the auto-failover pool. |
-| `GET` | `/api/v1/models/failovers` | Yes (`X-ChatBrain-Token`) | List recent failover events (newest first, limit cap 100). |
-| `GET` | `/api/v1/status` | Yes (`X-ChatBrain-Token`) | System status (health, DB, Python, key, models, pool_summary, failover_count_24h). |
 | `GET` | `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | List conversations ordered by pinned DESC, updated_at DESC (search & cursor pagination). |
 | `POST`| `/api/v1/conversations` | Yes (`X-ChatBrain-Token`) | Create conversation with optional title. |
 | `GET` | `/api/v1/conversations/{id}` | Yes (`X-ChatBrain-Token`) | Retrieve conversation with messages ordered by seq. |
