@@ -8,7 +8,6 @@ interface SidebarNavItemProps {
   label: string;
   tooltipText?: string;
   collapsed: boolean;
-  comingSoon?: boolean;
   end?: boolean;
   onClick?: () => void;
 }
@@ -19,7 +18,6 @@ export const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   label,
   tooltipText,
   collapsed,
-  comingSoon,
   end = false,
   onClick,
 }) => {
@@ -44,11 +42,6 @@ export const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
       {!collapsed && (
         <div className="flex flex-1 items-center justify-between min-w-0 pr-2">
           <span className="truncate text-xs">{label}</span>
-          {comingSoon && (
-            <span className="rounded bg-text-tertiary/15 px-1 py-0.2 text-[9px] text-text-tertiary uppercase shrink-0">
-              Soon
-            </span>
-          )}
         </div>
       )}
     </NavLink>

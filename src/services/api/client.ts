@@ -5,16 +5,10 @@
 import {
   ApiError,
   type DefaultModel,
-  type FailoverEvent,
   type GeminiCredentialsStatus,
   type GeminiTestResponse,
-  type HealthResetResponse,
   type HealthResponse,
-  type ModelScanResponse,
-  type ModelsHealthResponse,
   type ModelsResponse,
-  type PoolResponse,
-  type StatusResponse,
 } from './types';
 
 const BASE_URL = '/api/v1';
@@ -161,10 +155,6 @@ export async function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>('/health', { method: 'GET', requiresAuth: false });
 }
 
-export async function getStatus(): Promise<StatusResponse> {
-  return request<StatusResponse>('/status', { method: 'GET' });
-}
-
 export async function getCredentialsStatus(): Promise<GeminiCredentialsStatus> {
   return request<GeminiCredentialsStatus>('/credentials/gemini', { method: 'GET' });
 }
@@ -205,34 +195,4 @@ export async function setDefaultModel(modelId: string, force = false): Promise<D
 
 export async function clearDefaultModel(): Promise<DefaultModel> {
   return request<DefaultModel>('/models/default', { method: 'DELETE' });
-}
-
-export async function getModelsHealth(): Promise<ModelsHealthResponse> {
-  return request<ModelsHealthResponse>('/models/health', { method: 'GET' });
-}
-
-export async function getPool(): Promise<PoolResponse> {
-  return request<PoolResponse>('/models/pool', { method: 'GET' });
-}
-
-export async function setPoolExcluded(modelId: string, excluded: boolean): Promise<PoolResponse> {
-  return request<PoolResponse>(`/models/pool/${encodeURIComponent(modelId)}`, {
-    method: 'PATCH',
-    body: { excluded },
-  });
-}
-
-export async function scanModels(limit = 8): Promise<ModelScanResponse> {
-  return request<ModelScanResponse>('/models/health/scan', {
-    method: 'POST',
-    body: { limit },
-  });
-}
-
-export async function resetHealth(): Promise<HealthResetResponse> {
-  return request<HealthResetResponse>('/models/health/reset', { method: 'POST' });
-}
-
-export async function getFailovers(limit = 20): Promise<FailoverEvent[]> {
-  return request<FailoverEvent[]>(`/models/failovers?limit=${limit}`, { method: 'GET' });
 }

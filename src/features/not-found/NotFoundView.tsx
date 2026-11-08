@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Compass } from 'lucide-react';
+import { Compass, MessageSquare } from 'lucide-react';
 
 export const NotFoundView: React.FC = () => {
   return (
@@ -16,10 +16,10 @@ export const NotFoundView: React.FC = () => {
 
       <Link
         to="/"
-        className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-xs font-medium text-accent-foreground hover:bg-accent-hover transition-colors"
+        className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-xs font-medium text-white hover:bg-accent-hover transition-colors"
       >
-        <Home className="h-4 w-4" />
-        Back to Dashboard
+        <MessageSquare className="h-4 w-4" />
+        Back to Chat
       </Link>
     </div>
   );

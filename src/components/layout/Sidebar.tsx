@@ -1,22 +1,11 @@
 import React from 'react';
-import {
-  PanelLeftClose,
-  Plus,
-  Search,
-  LayoutDashboard,
-  History,
-  X,
-} from 'lucide-react';
+import { PanelLeftClose, Plus, Settings, X } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Logo } from '../shared/Logo';
-import { SidebarNavGroup } from './SidebarNavGroup';
-import { SidebarNavItem } from './SidebarNavItem';
-import { SidebarRecents } from './SidebarRecents';
-import { DeveloperRow } from './DeveloperRow';
-import { ProfileRow } from './ProfileRow';
+import { ThemeToggle } from '../shared/ThemeToggle';
 import { NavTooltip } from './NavTooltip';
+import { SidebarNavItem } from './SidebarNavItem';
 import { useUIStore } from '../../state/useUIStore';
-import { WORKSPACE_NAV_ITEMS, NavGroup } from '../../config/navigation';
 
 interface SidebarProps {
   isMobileDrawer?: boolean;
@@ -24,10 +13,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileDrawer = false, onNavigate }) => {
-  const { sidebarCollapsed, toggleSidebar, setSearchOpen } = useUIStore();
+  const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
   const isCollapsed = isMobileDrawer ? false : sidebarCollapsed;
-  const groups: NavGroup[] = ['Data Science', 'Labs', 'Creative', 'Workspace'];
 
   const handleLinkClick = () => {
     onNavigate?.();
@@ -99,110 +87,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileDrawer = false, onNavi
         >
           {/* New Chat Primary Action */}
           <SidebarNavItem
-            to="/chat/new"
+            to="/"
+            end
             icon={Plus}
             label="New chat"
             collapsed={isCollapsed}
             onClick={handleLinkClick}
           />
 
-          {/* Search Trigger */}
-          {isCollapsed ? (
-            <NavTooltip content="Search (Ctrl+K)">
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchOpen(true);
-                  handleLinkClick();
-                }}
-                aria-label="Search (Ctrl+K)"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-sidebar-accent hover:text-text-primary transition-colors focus:outline-none"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center">
-                  <Search className="h-4 w-4 stroke-[1.75] shrink-0" />
-                </div>
-              </button>
-            </NavTooltip>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchOpen(true);
-                handleLinkClick();
-              }}
-              aria-label="Search (Ctrl+K)"
-              className="flex h-10 w-full items-center rounded-md text-text-secondary hover:bg-sidebar-accent hover:text-text-primary transition-colors focus:outline-none shrink-0"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center">
-                <Search className="h-4 w-4 stroke-[1.75] shrink-0" />
-              </div>
-              <div className="flex flex-1 items-center justify-between min-w-0 pr-2">
-                <span className="text-xs">Search</span>
-                <kbd className="rounded border border-border/70 bg-surface px-1 text-[10px] text-text-tertiary">
-                  ⌘K
-                </kbd>
-              </div>
-            </button>
-          )}
-
-          {/* Separator between Actions and Core Routes */}
-          <div className="mx-1 my-1.5 h-px bg-border/40 shrink-0" role="separator" />
-
-          {/* Core Routes: Dashboard & History */}
-          <SidebarNavItem
-            to="/"
-            end={true}
-            icon={LayoutDashboard}
-            label="Dashboard"
-            collapsed={isCollapsed}
-            onClick={handleLinkClick}
-          />
-          <SidebarNavItem
-            to="/history"
-            icon={History}
-            label="Chat History"
-            collapsed={isCollapsed}
-            onClick={handleLinkClick}
-          />
-
-          {/* Separator before Domain Groups */}
-          <div className="mx-1 my-1.5 h-px bg-border/40 shrink-0" role="separator" />
-
-          {/* Domain Groups */}
-          <div className="flex flex-col gap-1 shrink-0">
-            {groups.map((grp, idx) => (
-              <React.Fragment key={grp}>
-                {idx > 0 && isCollapsed && (
-                  <div className="mx-1 my-1.5 h-px bg-border/40 shrink-0" role="separator" />
-                )}
-                <SidebarNavGroup
-                  group={grp}
-                  items={WORKSPACE_NAV_ITEMS.filter(item => item.group === grp)}
-                  collapsed={isCollapsed}
-                  onNavigate={handleLinkClick}
-                />
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Recents Section (Only in expanded mode) */}
+          {/* Chats Section */}
           {!isCollapsed && (
-            <>
-              <div className="mx-1 my-1.5 h-px bg-border/40 shrink-0" role="separator" />
-              <SidebarRecents collapsed={isCollapsed} onNavigate={handleLinkClick} />
-            </>
+            <div className="py-2">
+              <div className="px-3 py-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
+                  Chats
+                </span>
+              </div>
+              <div className="px-3 py-2 text-xs text-text-tertiary italic">
+                Your chats will appear here.
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Developer entry (only in DEV mode, directly above ProfileRow) */}
-        {import.meta.env.DEV && (
-          <div className="px-2 shrink-0 border-t border-border/40 py-1">
-            <DeveloperRow collapsed={isCollapsed} onNavigate={handleLinkClick} />
-          </div>
-        )}
+        {/* Region 3: Pinned bottom Settings link & Theme toggle */}
+        <div className="border-t border-border/40 p-2 flex flex-col gap-1 shrink-0">
+          <SidebarNavItem
+            to="/settings"
+            icon={Settings}
+            label="Settings"
+            collapsed={isCollapsed}
+            onClick={handleLinkClick}
+          />
 
-        {/* Region 3: Pinned bottom profile row (56px / h-14) */}
-        <ProfileRow collapsed={isCollapsed} onNavigate={handleLinkClick} />
+          {isCollapsed ? (
+            <NavTooltip content="Toggle theme">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                <ThemeToggle className="flex h-10 w-10 items-center justify-center rounded-md text-text-secondary hover:bg-sidebar-accent hover:text-text-primary transition-colors" />
+              </div>
+            </NavTooltip>
+          ) : (
+            <div className="flex h-10 w-full items-center justify-between rounded-md px-3 text-text-secondary hover:bg-sidebar-accent hover:text-text-primary transition-colors">
+              <span className="text-xs font-medium">Theme</span>
+              <ThemeToggle />
+            </div>
+          )}
+        </div>
       </aside>
     </Tooltip.Provider>
   );

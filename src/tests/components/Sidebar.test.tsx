@@ -21,44 +21,30 @@ describe('Sidebar Architecture & Layout', () => {
     useUIStore.getState().setSidebarCollapsed(false);
   });
 
-  it('renders expanded mode with labels, headings, developer entry, and collapse button', () => {
+  it('renders expanded mode with logo, new chat, chats section, settings, and theme toggle', () => {
     renderSidebar();
 
     expect(screen.getAllByText('Chat-Brain').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('New chat')).toBeInTheDocument();
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Chat History')).toBeInTheDocument();
-    expect(screen.getByText('Data Science')).toBeInTheDocument();
-    expect(screen.getByText('Labs')).toBeInTheDocument();
-    expect(screen.getByText('Developer')).toBeInTheDocument();
+    expect(screen.getByText('Chats')).toBeInTheDocument();
+    expect(screen.getByText('Your chats will appear here.')).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Theme')).toBeInTheDocument();
     expect(screen.getByLabelText('Collapse sidebar (Ctrl+B)')).toBeInTheDocument();
   });
 
-  it('renders collapsed mode with icons only and no text labels in document', () => {
+  it('renders collapsed mode with icons only and hides expanded labels', () => {
     useUIStore.getState().setSidebarCollapsed(true);
     renderSidebar();
 
     // In collapsed mode, expanded-only text labels must not exist
     expect(screen.queryByText('New chat')).toBeNull();
-    expect(screen.queryByText('Dashboard')).toBeNull();
-    expect(screen.queryByText('Chat History')).toBeNull();
-    expect(screen.queryByText('Data Science')).toBeNull();
-    expect(screen.queryByText('Labs')).toBeNull();
-    expect(screen.queryByText('Developer')).toBeNull();
+    expect(screen.queryByText('Chats')).toBeNull();
+    expect(screen.queryByText('Your chats will appear here.')).toBeNull();
+    expect(screen.queryByText('Settings')).toBeNull();
 
     // Toggle button should now offer to expand
     expect(screen.getByLabelText('Expand sidebar (Ctrl+B)')).toBeInTheDocument();
-    expect(screen.getByLabelText('Search (Ctrl+K)')).toBeInTheDocument();
-    expect(screen.getByLabelText('Developer controls (Dev only)')).toBeInTheDocument();
-  });
-
-  it('renders group separators between sections and domain groups in collapsed mode', () => {
-    useUIStore.getState().setSidebarCollapsed(true);
-    renderSidebar();
-
-    // Role separator should be present between sections & domain groups
-    const separators = screen.getAllByRole('separator');
-    expect(separators.length).toBeGreaterThanOrEqual(4);
   });
 
   it('enforces strict 40x40 (h-10 w-10 shrink-0) dimensions on collapsed nav links', () => {
@@ -66,7 +52,7 @@ describe('Sidebar Architecture & Layout', () => {
     const { container } = renderSidebar();
 
     const collapsedLinks = container.querySelectorAll('a[href]');
-    expect(collapsedLinks.length).toBeGreaterThanOrEqual(5);
+    expect(collapsedLinks.length).toBeGreaterThanOrEqual(2);
 
     collapsedLinks.forEach(link => {
       expect(link.className).toContain('h-10');
@@ -84,19 +70,19 @@ describe('Sidebar Architecture & Layout', () => {
     expect(useUIStore.getState().sidebarCollapsed).toBe(true);
   });
 
-  it('highlights only the active route in text-primary with subtle background', () => {
+  it('highlights the active route with sidebar-accent background', () => {
     useUIStore.getState().setSidebarCollapsed(true);
-    const { container } = renderSidebar({}, '/history');
+    const { container } = renderSidebar({}, '/settings');
 
-    const activeLink = container.querySelector('a[href="/history"]');
+    const activeLink = container.querySelector('a[href="/settings"]');
     expect(activeLink).not.toBeNull();
     expect(activeLink?.className).toContain('text-text-primary');
     expect(activeLink?.className).toContain('bg-sidebar-accent');
 
-    // Dashboard link should NOT be active when on /history
-    const dashboardLink = container.querySelector('a[href="/"]');
-    expect(dashboardLink).not.toBeNull();
-    expect(dashboardLink?.className).toContain('text-text-secondary');
+    // Home link should NOT be active when on /settings
+    const homeLink = container.querySelector('a[href="/"]');
+    expect(homeLink).not.toBeNull();
+    expect(homeLink?.className).toContain('text-text-secondary');
   });
 
   it('renders mobile drawer mode as expanded even if sidebarCollapsed is true', () => {

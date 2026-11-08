@@ -1,4 +1,5 @@
 # Chat-Brain Rules (read before every task)
+0. Product rule: before building anything ask (1) does it directly help a data-science student, (2) can it live in the backend without UI, (3) can it fit an existing screen; no placeholder pages; no model names in the chat UI.
 1. Do ONLY the requested step. Do not build ahead. Do not touch unrelated files.
 2. Never fake anything: no fake execution, metrics, models or replies. Unavailable = honest empty/error state.
 3. Design: flat, warm, calm (Claude-like). No glass, blur, gradients, glow. Light+Dark. Colors only via tokens, never raw hex.

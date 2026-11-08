@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { ThemeToggle } from '../shared/ThemeToggle';
-import { SearchPalette } from '../shared/SearchPalette';
 import { useUIStore } from '../../state/useUIStore';
 
 export const AppShell: React.FC = () => {
@@ -44,9 +43,6 @@ export const AppShell: React.FC = () => {
           <Outlet />
         </main>
       </div>
-
-      {/* Global Command-Palette Search Modal */}
-      <SearchPalette />
     </div>
   );
 };

@@ -49,7 +49,7 @@ export const MobileHeader: React.FC = () => {
         <Logo />
 
         <Link
-          to="/chat/new"
+          to="/"
           aria-label="New chat"
           className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-soft text-accent transition-colors focus:outline-none"
         >
