@@ -1,62 +1,105 @@
 import React, { useState } from 'react';
-import { Sparkles } from 'lucide-react';
-import { Composer, ComposerAttachment } from '../../components/shared/Composer';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardCheck, Code2, FileText, Lightbulb, Sparkles } from 'lucide-react';
+import { Composer } from '../../components/shared/Composer';
+import { createConversation } from '../../services/api/client';
 
-const PROMPT_SUGGESTIONS = [
-  'Explain a concept',
-  'Help me debug code',
-  'Plan a project',
-  'Summarize text',
+interface Suggestion {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  prompt: string;
+}
+
+const PROMPT_SUGGESTIONS: Suggestion[] = [
+  {
+    label: 'Explain a concept',
+    icon: Lightbulb,
+    prompt: 'Explain how attention mechanisms work in transformers with an intuitive analogy.',
+  },
+  {
+    label: 'Help me debug code',
+    icon: Code2,
+    prompt: 'Can you help me review and debug this code logic?',
+  },
+  {
+    label: 'Plan a project',
+    icon: ClipboardCheck,
+    prompt: 'Help me plan the technical architecture and milestones for a new project.',
+  },
+  {
+    label: 'Summarize text',
+    icon: FileText,
+    prompt: 'Please summarize the key takeaways from this text into concise bullet points.',
+  },
 ];
 
 export const NewChatView: React.FC = () => {
   const [activePrompt, setActivePrompt] = useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (content: string, _attachments: ComposerAttachment[]) => {
-    console.log('Composer submitted:', content);
+  const handleSubmit = async (content: string) => {
+    if (!content.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const conv = await createConversation(content.slice(0, 40));
+      navigate(`/chat/${conv.id}`, { state: { initialPrompt: content } });
+    } catch {
+      // If offline or backend error, navigate with fallback temporary id
+      const tempId = Math.random().toString(36).substring(2, 10);
+      navigate(`/chat/${tempId}`, { state: { initialPrompt: content } });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleChipClick = (suggestion: string) => {
-    setActivePrompt(suggestion);
+  const handleChipClick = (prompt: string) => {
+    setActivePrompt(prompt);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-4rem)] px-4 py-8 sm:py-12 max-w-2xl mx-auto text-center w-full">
-      {/* Emblem */}
-      <div className="flex h-12 w-12 items-center justify-center rounded-card bg-accent-soft text-accent mb-4 shadow-subtle">
-        <Sparkles className="h-6 w-6 stroke-[1.75]" />
+    <div className="g-rise flex flex-col items-center justify-center min-h-[calc(100dvh-5rem)] px-4 py-8 sm:py-14 max-w-2xl mx-auto text-center w-full">
+      {/* Sparkle Icon in .glass-icon-tile */}
+      <div className="glass-icon-tile text-accent mb-6">
+        <Sparkles className="h-8 w-8 stroke-[1.75]" />
       </div>
 
-      {/* Greeting */}
-      <h1 className="font-serif text-2xl sm:text-3xl font-medium text-text-primary mb-2 tracking-tight">
+      {/* Heading in Newsreader Serif Font */}
+      <h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-normal text-text-primary mb-2.5 tracking-tight">
         How can I help you today?
       </h1>
-      <p className="text-xs sm:text-sm text-text-secondary mb-6 sm:mb-8 max-w-md leading-relaxed">
+
+      {/* Muted Subtext */}
+      <p className="text-xs sm:text-sm text-text-secondary mb-8 max-w-md leading-relaxed">
         Start a new conversation, explore data science topics, or debug code.
       </p>
 
-      {/* Chat Composer */}
-      <div className="w-full mb-5">
+      {/* Floating Glass Composer */}
+      <div className="w-full mb-6">
         <Composer
-          placeholder="Ask anything or request data analysis..."
+          initialValue={activePrompt}
           onSubmit={handleSubmit}
+          disabled={isSubmitting}
           autoFocus
-          key={activePrompt}
         />
       </div>
 
-      {/* Prompt Suggestion Chips */}
-      <div className="flex flex-wrap items-center justify-center gap-2 mb-6 max-w-lg">
-        {PROMPT_SUGGESTIONS.map(chip => (
-          <button
-            key={chip}
-            type="button"
-            onClick={() => handleChipClick(chip)}
-            className="rounded-md border border-border/70 bg-surface px-3 py-1.5 text-xs text-text-secondary hover:bg-sidebar-accent hover:text-text-primary hover:border-border transition-all shadow-subtle active:scale-95"
-          >
-            {chip}
-          </button>
-        ))}
+      {/* 4 Glass Suggestion Chips with Accent Icons */}
+      <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-xl">
+        {PROMPT_SUGGESTIONS.map(s => {
+          const Icon = s.icon;
+          return (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => handleChipClick(s.prompt)}
+              className="glass-chip text-xs font-normal text-text-secondary hover:text-text-primary cursor-pointer select-none"
+            >
+              <Icon className="h-4 w-4 text-accent shrink-0" />
+              <span>{s.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

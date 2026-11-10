@@ -137,19 +137,15 @@ def test_rank_candidates_pure_function() -> None:
     }
 
     # 1. Non-chat kinds filtered out
-    ranked = rank_candidates([m_embed, m_flash, m_pro], health, None, now)
+    ranked = rank_candidates([m_embed, m_flash, m_pro], health, now)
     assert all(m.id != "text-embedding-004" for m in ranked)
 
-    # 2. Default model comes first if not cooling
-    ranked_def = rank_candidates([m_flash, m_pro], health, "gemini-2.5-flash", now)
-    assert ranked_def[0].id == "gemini-2.5-flash"
+    # 2. Lowest known TTFT comes first
+    ranked_ttft = rank_candidates([m_flash, m_pro], health, now)
+    assert ranked_ttft[0].id == "gemini-2.5-pro"
+    assert ranked_ttft[1].id == "gemini-2.5-flash"
 
-    # 3. Without default, lowest TTFT comes first
-    ranked_no_def = rank_candidates([m_flash, m_pro], health, None, now)
-    assert ranked_no_def[0].id == "gemini-2.5-pro"
-    assert ranked_no_def[1].id == "gemini-2.5-flash"
-
-    # 4. Unknown model uses neutral TTFT (median or 2000ms)
+    # 3. Unknown model uses neutral TTFT (median or 2000ms)
     m_unknown = ModelInfo(
         id="gemini-unknown-chat",
         display_name="Unknown Chat",
@@ -158,9 +154,33 @@ def test_rank_candidates_pure_function() -> None:
         supported_actions=["generateContent"],
     )
     # Median of [300, 150] is 225.0 ms -> unknown comes after 150 but before 300
-    ranked_unk = rank_candidates([m_flash, m_pro, m_unknown], health, None, now)
+    ranked_unk = rank_candidates([m_flash, m_pro, m_unknown], health, now)
     ids = [m.id for m in ranked_unk]
     assert ids == ["gemini-2.5-pro", "gemini-unknown-chat", "gemini-2.5-flash"]
+
+    # 4. Tie-breaking: same TTFT -> fewer consecutive failures -> ID ascending
+    m_tie_b = ModelInfo(
+        id="gemini-tie-b", display_name="Tie B",
+        provider="gemini", capabilities=["text"], supported_actions=["generateContent"],
+    )
+    m_tie_a = ModelInfo(
+        id="gemini-tie-a", display_name="Tie A",
+        provider="gemini", capabilities=["text"], supported_actions=["generateContent"],
+    )
+    tie_health = {
+        "gemini-tie-b": ModelHealthRecord(model_id="gemini-tie-b", ttft_ms_ewma=100.0, consecutive_failures=1),
+        "gemini-tie-a": ModelHealthRecord(model_id="gemini-tie-a", ttft_ms_ewma=100.0, consecutive_failures=0),
+    }
+    ranked_failures = rank_candidates([m_tie_b, m_tie_a], tie_health, now)
+    assert [m.id for m in ranked_failures] == ["gemini-tie-a", "gemini-tie-b"]
+
+    # Equal failures: tie-break on ID ascending
+    tie_health_equal = {
+        "gemini-tie-b": ModelHealthRecord(model_id="gemini-tie-b", ttft_ms_ewma=100.0, consecutive_failures=0),
+        "gemini-tie-a": ModelHealthRecord(model_id="gemini-tie-a", ttft_ms_ewma=100.0, consecutive_failures=0),
+    }
+    ranked_id = rank_candidates([m_tie_b, m_tie_a], tie_health_equal, now)
+    assert [m.id for m in ranked_id] == ["gemini-tie-a", "gemini-tie-b"]
 
     # 5. Model in cooldown dropped unless all cooling
     cooling_health = dict(health)
@@ -168,7 +188,7 @@ def test_rank_candidates_pure_function() -> None:
         model_id="gemini-2.5-pro",
         cooldown_until=(now + timedelta(seconds=60.0)).isoformat(),
     )
-    ranked_cooldown = rank_candidates([m_flash, m_pro], cooling_health, "gemini-2.5-pro", now)
+    ranked_cooldown = rank_candidates([m_flash, m_pro], cooling_health, now)
     assert [m.id for m in ranked_cooldown] == ["gemini-2.5-flash"]
 
     # 6. When ALL models are cooling, return ordered by earliest expiry
@@ -176,5 +196,5 @@ def test_rank_candidates_pure_function() -> None:
         model_id="gemini-2.5-flash",
         cooldown_until=(now + timedelta(seconds=120.0)).isoformat(),
     )
-    ranked_all_cooling = rank_candidates([m_flash, m_pro], cooling_health, None, now)
+    ranked_all_cooling = rank_candidates([m_flash, m_pro], cooling_health, now)
     assert [m.id for m in ranked_all_cooling] == ["gemini-2.5-pro", "gemini-2.5-flash"]

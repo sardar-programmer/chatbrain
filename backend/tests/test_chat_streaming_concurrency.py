@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from app.db.database import create_connection
 from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider
@@ -34,7 +33,6 @@ def parse_sse(text: str) -> list[tuple[str, dict[str, Any]]]:
 def setup_chat(conn: Any, title: str) -> str:
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
     conv = chat_store.create_conversation(conn, title)
     return conv["id"]
 
@@ -106,7 +104,6 @@ def test_logs_never_leak_user_text_or_api_key(
 
     save_gemini_key(secret_key)
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
     conv = chat_store.create_conversation(conn, "Security Log Chat")
 
     fake_provider.chunks_to_stream = [StreamChunk(text="Response")]

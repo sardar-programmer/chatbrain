@@ -27,12 +27,12 @@ export const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
       end={end}
       onClick={onClick}
       className={({ isActive }) =>
-        `flex h-10 items-center rounded-md transition-colors focus:outline-none shrink-0 ${
+        `flex h-10 items-center rounded-lg transition-all duration-150 focus:outline-none shrink-0 ${
           collapsed ? 'w-10 justify-center' : 'w-full'
         } ${
           isActive
-            ? 'bg-sidebar-accent text-text-primary font-medium'
-            : 'text-text-secondary hover:bg-sidebar-accent hover:text-text-primary'
+            ? 'bg-sidebar-accent text-text-primary font-medium shadow-sm border border-accent/15'
+            : 'text-text-secondary hover:bg-sidebar-accent/80 hover:text-text-primary border border-transparent'
         }`
       }
     >

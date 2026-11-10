@@ -69,7 +69,7 @@ export const ApiKeySection: React.FC = () => {
     setErrorMessage(null);
     try {
       await deleteMutation.mutateAsync();
-      showToast({ message: 'API key removed and models cache cleared', type: 'info' });
+      showToast({ message: 'API key removed', type: 'info' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to remove API key';
       setErrorMessage(msg);
@@ -84,11 +84,13 @@ export const ApiKeySection: React.FC = () => {
     >
       <div className="space-y-4">
         {/* Status bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md bg-sidebar/50 p-3 border border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-surface/50 dark:bg-surface/30 backdrop-blur-md p-3.5 border border-white/60 dark:border-white/10 shadow-sm">
           <div className="flex items-center gap-3">
             <div
-              className={`flex h-9 w-9 items-center justify-center rounded-card ${
-                isConfigured ? 'bg-status-success/10 text-status-success' : 'bg-sidebar text-text-tertiary'
+              className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                isConfigured
+                  ? 'bg-status-success/15 border-status-success/30 text-status-success'
+                  : 'bg-surface/80 border-border/40 text-text-tertiary'
               }`}
             >
               {isConfigured ? <ShieldCheck className="h-5 w-5" /> : <KeyRound className="h-5 w-5" />}
@@ -120,7 +122,7 @@ export const ApiKeySection: React.FC = () => {
                 type="button"
                 onClick={handleTest}
                 disabled={testMutation.isPending}
-                className="inline-flex items-center rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-sidebar-accent transition-colors disabled:opacity-50"
+                className="inline-flex items-center rounded-lg border border-white/60 dark:border-white/10 bg-surface/70 hover:bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 shadow-sm"
               >
                 {testMutation.isPending ? 'Testing...' : 'Test connection'}
               </button>
@@ -128,7 +130,7 @@ export const ApiKeySection: React.FC = () => {
                 type="button"
                 onClick={() => setIsConfirmOpen(true)}
                 disabled={deleteMutation.isPending}
-                className="inline-flex items-center gap-1 rounded-md border border-status-error/30 bg-surface px-2.5 py-1 text-xs font-medium text-status-error hover:bg-status-error/10 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-status-error/30 bg-status-error/5 hover:bg-status-error/15 px-3 py-1.5 text-xs font-medium text-status-error transition-all disabled:opacity-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Remove
@@ -152,12 +154,12 @@ export const ApiKeySection: React.FC = () => {
                 value={apiKeyInput}
                 onChange={e => setApiKeyInput(e.target.value)}
                 placeholder={isConfigured ? 'Enter new key to replace existing...' : 'AIzaSy...'}
-                className="w-full rounded-md border border-border bg-sidebar px-3 py-1.5 pr-10 text-xs font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent transition-colors"
+                className="w-full rounded-xl border border-white/60 dark:border-white/10 bg-surface/60 dark:bg-surface/30 backdrop-blur-md px-3.5 py-2 pr-10 text-xs font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/30 transition-all shadow-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowKey(prev => !prev)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors focus:outline-none"
                 aria-label={showKey ? 'Hide key' : 'Show key'}
               >
                 {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -166,7 +168,7 @@ export const ApiKeySection: React.FC = () => {
           </div>
 
           {errorMessage && (
-            <div className="rounded-md bg-status-error/10 border border-status-error/20 p-2 text-xs text-status-error">
+            <div className="rounded-xl bg-status-error/10 border border-status-error/20 p-2.5 text-xs text-status-error">
               {errorMessage}
             </div>
           )}
@@ -175,7 +177,7 @@ export const ApiKeySection: React.FC = () => {
             <button
               type="submit"
               disabled={saveMutation.isPending || !apiKeyInput.trim()}
-              className="inline-flex items-center rounded-md bg-accent px-3.5 py-1.5 text-xs font-medium text-white hover:bg-accent-hover transition-colors disabled:opacity-50"
+              className="bg-accent hover:bg-accent-hover text-white shadow-sm inline-flex items-center rounded-lg px-4 py-2 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {saveMutation.isPending ? 'Validating...' : 'Save & validate'}
             </button>
@@ -186,7 +188,7 @@ export const ApiKeySection: React.FC = () => {
                   setApiKeyInput('');
                   setErrorMessage(null);
                 }}
-                className="inline-flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-tertiary hover:text-text-primary transition-colors"
+                className="inline-flex items-center rounded-lg border border-border/50 bg-surface/60 px-3 py-2 text-xs font-medium text-text-tertiary hover:text-text-primary transition-colors"
               >
                 Clear
               </button>
@@ -199,7 +201,7 @@ export const ApiKeySection: React.FC = () => {
         open={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
         title="Remove Gemini API Key"
-        description="This will delete data/secrets/gemini.key from this machine and clear the cached models registry. You will need to re-enter a key to use AI features."
+        description="This will delete data/secrets/gemini.key from this machine. You will need to re-enter a key to use AI features."
         confirmText="Remove key"
         isDestructive
         onConfirm={handleDelete}

@@ -6,7 +6,8 @@ import logging
 from typing import Any
 from fastapi import Request
 from app.db.database import create_connection
-from app.services.ai.provider import derive_kind
+from app.services.ai.error_classifier import classify_provider_error
+from app.services.ai.provider import ModelInfo, derive_kind
 from app.services.chat import chat_store
 from app.services.chat.chat_context import build_chat_context
 from app.services.chat.chat_stream_session import (
@@ -18,11 +19,15 @@ from app.services.chat.chat_stream_session import (
 )
 from app.services.chat.failover_runner import execute_failover_reply
 from app.services.chat.failover_stream import finalize_assistant_msg
-from app.services.default_model import get_default_chat_model_status
 from app.services.key_store import load_gemini_key
-from app.services.model_registry import get_cached_models
+from app.services.model_registry import (
+    discover_and_cache_models,
+    get_cached_models,
+    is_cache_stale,
+)
 
 logger = logging.getLogger("chatbrain.chat.streamer")
+_bg_tasks: set[asyncio.Task[Any]] = set()
 
 FIRST_CHUNK_TIMEOUT_SECONDS = 12.0
 IDLE_CHUNK_TIMEOUT_SECONDS = 60.0
@@ -63,6 +68,38 @@ async def stream_reply_events(
             return
 
         all_models = get_cached_models(conn)
+        if not all_models:
+            def _sync_discover() -> list[ModelInfo]:
+                disc_conn = create_connection()
+                try:
+                    return discover_and_cache_models(disc_conn, api_key)
+                finally:
+                    disc_conn.close()
+
+            try:
+                all_models = await asyncio.wait_for(
+                    asyncio.to_thread(_sync_discover),
+                    timeout=10.0,
+                )
+            except Exception as exc:
+                code = getattr(exc, "code", None) or classify_provider_error(exc).code
+                logger.warning("Lazy model discovery on empty cache failed: %s", code)
+                all_models = []
+        elif is_cache_stale(all_models, max_age_seconds=86400.0):
+            def _bg_discover() -> None:
+                bg_conn = create_connection()
+                try:
+                    discover_and_cache_models(bg_conn, api_key)
+                except Exception as exc:
+                    code = getattr(exc, "code", None) or classify_provider_error(exc).code
+                    logger.warning("Background stale cache refresh failed: %s", code)
+                finally:
+                    bg_conn.close()
+
+            bg_task = asyncio.create_task(asyncio.to_thread(_bg_discover))
+            _bg_tasks.add(bg_task)
+            bg_task.add_done_callback(_bg_tasks.discard)
+
         chat_candidates = [
             m for m in all_models
             if derive_kind(m.id, m.supported_actions, m.capabilities).kind == "chat"
@@ -71,14 +108,11 @@ async def stream_reply_events(
             yield sse_event("error", {
                 "category": "model",
                 "code": "bad_request",
-                "message": "No chat model is available yet. Open the Models page and refresh the list.",
+                "message": "No chat model is available for your API key. Check the key in Settings.",
                 "retryable": False,
                 "message_id": None,
             })
             return
-
-        dcm = get_default_chat_model_status(conn, key_configured=True)
-        default_model_id = dcm["model_id"] if dcm.get("valid") else None
 
         asst_msg = chat_store.create_assistant_message(conn, conv_id)
         asst_msg_id = asst_msg["id"]
@@ -101,7 +135,6 @@ async def stream_reply_events(
             api_key=api_key,
             context=context,
             all_models=all_models,
-            default_model_id=default_model_id,
             request=request,
         )
         async for event in failover_gen:

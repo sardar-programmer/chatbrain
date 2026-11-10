@@ -3,7 +3,6 @@
 from fastapi.testclient import TestClient
 from app.db.database import create_connection
 from app.services.ai.model_health import get_health_store
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS
@@ -21,7 +20,6 @@ def test_get_models_health_shape_and_ranking(
     conn = create_connection()
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
 
     health_store = get_health_store()
     health_store.record_success("gemini-2.5-flash", 250.0, conn=conn)
@@ -48,7 +46,7 @@ def test_get_models_health_shape_and_ranking(
     assert pro_item["in_cooldown"] is True
     assert pro_item["last_error_code"] == "unavailable"
 
-    # Ranked try order: default first
+    # Ranked try order: lower TTFT first
     assert data["ranked"][0] == "gemini-2.5-flash"
     # Cooling model still present in models list but excluded from ranked
     assert "gemini-2.5-pro" not in data["ranked"]

@@ -11,7 +11,6 @@ from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
 from app.services.chat.failover_config import FailoverConfig, set_failover_config
 from app.services.chat.failover_events import get_failover_events
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider, ModelScript, _m
@@ -26,7 +25,6 @@ def setup_multi_model_chat(conn: Any) -> str:
         _m("model-gamma", "Model Gamma", ["generateContent"], ["text"]),
     ]
     save_cached_models(conn, models)
-    set_default_chat_model(conn, "model-alpha")
     conv = chat_store.create_conversation(conn, "Failover Chat")
     return conv["id"]
 
@@ -165,9 +163,6 @@ def test_no_default_configured_uses_ranked_pool(
     conn = create_connection()
     conv_id = setup_multi_model_chat(conn)
 
-    # Clear default chat model
-    conn.execute("DELETE FROM settings WHERE key = 'default_chat_model';")
-    conn.commit()
 
     # Alpha is slower, Beta has better TTFT
     health_store = get_health_store()

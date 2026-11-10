@@ -1,4 +1,4 @@
-"""Pure functions for model candidate ranking and filtering (M1.3c)."""
+"""Pure functions for model candidate ranking and filtering (M1.3c, C1)."""
 
 from datetime import datetime, timezone
 import statistics
@@ -11,7 +11,6 @@ DEFAULT_NEUTRAL_TTFT_MS = 2000.0
 def rank_candidates(
     models: list[ModelInfo],
     health: dict[str, ModelHealthRecord],
-    default_model_id: str | None = None,
     now: datetime | None = None,
 ) -> list[ModelInfo]:
     """Rank eligible chat candidate models according to speed, health, and cooldown state."""
@@ -46,17 +45,7 @@ def rank_candidates(
 
         return sorted(cooling, key=_expiry_key)
 
-    # 4. Check if default model is available and not cooling
-    default_model: ModelInfo | None = None
-    remaining_available: list[ModelInfo] = []
-
-    for m in available:
-        if default_model_id and m.id == default_model_id:
-            default_model = m
-        else:
-            remaining_available.append(m)
-
-    # 5. Compute neutral TTFT (median of known candidate values, or 2000 ms if none known)
+    # 4. Compute neutral TTFT (median of known candidate values, or 2000 ms if none known)
     known_ttfts: list[float] = [
         rec.ttft_ms_ewma
         for m in available
@@ -65,7 +54,7 @@ def rank_candidates(
 
     neutral_ttft = statistics.median(known_ttfts) if known_ttfts else DEFAULT_NEUTRAL_TTFT_MS
 
-    # 6. Sort non-default candidates by (effective_ttft, consecutive_failures, id)
+    # 5. Sort candidates by (effective_ttft, consecutive_failures, id)
     def _rank_key(m: ModelInfo) -> tuple[float, int, str]:
         rec = health.get(m.id)
         effective_ttft = (
@@ -76,8 +65,4 @@ def rank_candidates(
         failures = rec.consecutive_failures if rec else 0
         return (effective_ttft, failures, m.id)
 
-    sorted_remaining = sorted(remaining_available, key=_rank_key)
-
-    if default_model is not None:
-        return [default_model] + sorted_remaining
-    return sorted_remaining
+    return sorted(available, key=_rank_key)

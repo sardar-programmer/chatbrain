@@ -5,17 +5,15 @@ from fastapi.testclient import TestClient
 from app.db.database import create_connection
 from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider
 
 
 def setup_chat(conn: Any) -> tuple[str, str]:
-    """Helper to save Gemini key, set default model, and create a conversation."""
+    """Helper to save Gemini key and create a conversation."""
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
     conv = chat_store.create_conversation(conn, "Safety/Throttle Chat")
     return conv["id"], "gemini-2.5-flash"
 

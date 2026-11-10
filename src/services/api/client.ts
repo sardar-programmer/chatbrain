@@ -4,11 +4,11 @@
 
 import {
   ApiError,
-  type DefaultModel,
+  type ConversationDetailResponse,
+  type ConversationListResponse,
   type GeminiCredentialsStatus,
   type GeminiTestResponse,
   type HealthResponse,
-  type ModelsResponse,
 } from './types';
 
 const BASE_URL = '/api/v1';
@@ -174,25 +174,23 @@ export async function deleteGeminiKey(): Promise<GeminiCredentialsStatus> {
   return request<GeminiCredentialsStatus>('/credentials/gemini', { method: 'DELETE' });
 }
 
-export async function listModels(): Promise<ModelsResponse> {
-  return request<ModelsResponse>('/models', { method: 'GET' });
+export async function listConversations(search?: string): Promise<ConversationListResponse> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  return request<ConversationListResponse>(`/conversations${query}`, { method: 'GET' });
 }
 
-export async function refreshModels(): Promise<ModelsResponse> {
-  return request<ModelsResponse>('/models/refresh', { method: 'POST' });
-}
-
-export async function getDefaultModel(): Promise<DefaultModel> {
-  return request<DefaultModel>('/models/default', { method: 'GET' });
-}
-
-export async function setDefaultModel(modelId: string, force = false): Promise<DefaultModel> {
-  return request<DefaultModel>('/models/default', {
-    method: 'PUT',
-    body: { model_id: modelId, force },
+export async function createConversation(title?: string): Promise<ConversationDetailResponse> {
+  return request<ConversationDetailResponse>('/conversations', {
+    method: 'POST',
+    body: title ? { title } : undefined,
   });
 }
 
-export async function clearDefaultModel(): Promise<DefaultModel> {
-  return request<DefaultModel>('/models/default', { method: 'DELETE' });
+export async function getConversation(id: string): Promise<ConversationDetailResponse> {
+  return request<ConversationDetailResponse>(`/conversations/${id}`, { method: 'GET' });
 }
+
+export async function deleteConversation(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/conversations/${id}`, { method: 'DELETE' });
+}
+

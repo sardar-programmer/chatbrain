@@ -1,4 +1,4 @@
-"""API endpoint for model health and auto-failover status (M1.3c)."""
+"""API endpoint for model health and auto-failover status (M1.3c, C1)."""
 
 from datetime import datetime, timezone
 import sqlite3
@@ -9,9 +9,7 @@ from app.db.database import get_db
 from app.security import verify_token
 from app.services.ai.model_health import get_health_store
 from app.services.ai.model_pool import rank_candidates
-from app.services.ai.provider import ModelInfo, derive_kind, get_ai_provider
-from app.services.default_model import get_default_chat_model_status
-from app.services.key_store import load_gemini_key
+from app.services.ai.provider import ModelInfo, derive_kind
 from app.services.model_registry import get_cached_models
 
 router = APIRouter(prefix="/api/v1/models", dependencies=[Depends(verify_token)])
@@ -47,9 +45,6 @@ def get_models_health(
     cached = get_cached_models(conn)
     health_store = get_health_store()
 
-    dcm = get_default_chat_model_status(conn, key_configured=bool(load_gemini_key()))
-    default_model_id = dcm["model_id"] if dcm.get("valid") else None
-
     now_dt = datetime.now(timezone.utc)
     chat_models: list[ModelInfo] = []
     items: list[dict[str, Any]] = []
@@ -75,7 +70,6 @@ def get_models_health(
     ranked = rank_candidates(
         chat_models,
         health_store.all(),
-        default_model_id=default_model_id,
         now=now_dt,
     )
 

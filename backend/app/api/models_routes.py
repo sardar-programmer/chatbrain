@@ -1,4 +1,4 @@
-"""API endpoints for model discovery and default chat model configuration."""
+"""API endpoints for model discovery debug endpoints (v1)."""
 
 import sqlite3
 from typing import Any
@@ -6,24 +6,17 @@ from fastapi import APIRouter, Depends
 from app.db.database import get_db
 from app.errors import AuthException, ProviderException
 from app.schemas.core import (
-    DefaultChatModelStatus,
-    DefaultModelPayload,
     ModelWithKind,
     ModelsListResponse,
 )
 from app.security import verify_token
-from app.services.ai.model_health import get_health_store
-from app.services.ai.provider import ModelInfo, derive_kind, get_ai_provider
-from app.services.default_model import (
-    clear_default_chat_model,
-    get_default_chat_model_status,
-    set_default_chat_model,
-)
+from app.services.ai.provider import ModelInfo, derive_kind
 from app.services.key_store import load_gemini_key
 from app.services.model_registry import (
+    discover_and_cache_models,
     get_cached_models,
-    save_cached_models,
 )
+
 router = APIRouter(prefix="/api/v1")
 
 
@@ -57,23 +50,16 @@ def refresh_models(
     if not key:
         raise AuthException("No Gemini API key configured", status_code=401)
 
-    provider = get_ai_provider()
     try:
-        discovered = provider.list_models(key)
+        discovered = discover_and_cache_models(conn, key)
     except ProviderException:
         raise
     except Exception as exc:
         raise ProviderException("Unexpected error fetching models", status_code=502) from exc
 
-    save_cached_models(conn, discovered)
-    get_health_store().clear_not_found_cooldowns(conn)
-
-    key_configured = bool(load_gemini_key())
-    dcm = get_default_chat_model_status(conn, key_configured)
     return {
         "models": enrich_models(discovered),
         "connected": True,
-        "default_chat_model": dcm,
     }
 
 
@@ -85,41 +71,10 @@ def get_models(
     """Return cached models with kind. Empty + connected:false when no key."""
     key = load_gemini_key()
     if not key:
-        return {"models": [], "connected": False, "default_chat_model": None}
+        return {"models": [], "connected": False}
 
     cached = get_cached_models(conn)
-    dcm = get_default_chat_model_status(conn, True)
     return {
         "models": enrich_models(cached),
         "connected": True,
-        "default_chat_model": dcm,
     }
-
-
-@router.get("/models/default", response_model=DefaultChatModelStatus)
-def get_default_model(
-    conn: sqlite3.Connection = Depends(get_db),
-    _token: str = Depends(verify_token),
-) -> dict[str, Any]:
-    """Return the saved default chat model and its validity."""
-    key_configured = bool(load_gemini_key())
-    return get_default_chat_model_status(conn, key_configured)
-
-
-@router.put("/models/default", response_model=DefaultChatModelStatus)
-def put_default_model(
-    payload: DefaultModelPayload,
-    conn: sqlite3.Connection = Depends(get_db),
-    _token: str = Depends(verify_token),
-) -> dict[str, Any]:
-    """Set the default chat model. Must be in the cached list; must be kind=chat unless force=true."""
-    return set_default_chat_model(conn, payload.model_id, payload.force)
-
-
-@router.delete("/models/default", response_model=DefaultChatModelStatus)
-def delete_default_model(
-    conn: sqlite3.Connection = Depends(get_db),
-    _token: str = Depends(verify_token),
-) -> dict[str, Any]:
-    """Clear the default chat model selection."""
-    return clear_default_chat_model(conn)

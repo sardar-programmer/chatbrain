@@ -1,8 +1,10 @@
 """Database repository for caching discovered models in model_registry."""
 
+from datetime import datetime, timezone
 import json
 import sqlite3
-from app.services.ai.provider import ModelInfo
+from app.services.ai.model_health import get_health_store
+from app.services.ai.provider import ModelInfo, get_ai_provider
 
 
 def get_cached_models(conn: sqlite3.Connection) -> list[ModelInfo]:
@@ -69,3 +71,33 @@ def clear_cached_models(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
     cursor.execute("DELETE FROM model_registry;")
     conn.commit()
+
+
+def discover_and_cache_models(conn: sqlite3.Connection, api_key: str) -> list[ModelInfo]:
+    """Fetch models from provider, cache in registry, and clear not-found cooldowns."""
+    provider = get_ai_provider()
+    discovered = provider.list_models(api_key)
+    save_cached_models(conn, discovered)
+    get_health_store().clear_not_found_cooldowns(conn)
+    return discovered
+
+
+def is_cache_stale(models: list[ModelInfo], max_age_seconds: float = 86400.0) -> bool:
+    """Check if model cache is older than max_age_seconds (default 24h)."""
+    if not models:
+        return True
+    timestamps: list[datetime] = []
+    for m in models:
+        if m.last_checked:
+            try:
+                dt = datetime.fromisoformat(m.last_checked)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                timestamps.append(dt)
+            except Exception:
+                pass
+    if not timestamps:
+        return True
+    newest = max(timestamps)
+    age = (datetime.now(timezone.utc) - newest).total_seconds()
+    return age >= max_age_seconds

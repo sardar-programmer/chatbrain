@@ -43,28 +43,35 @@ export interface GeminiTestResponse {
   message: string;
 }
 
-export interface Model {
+export interface ConversationItem {
   id: string;
-  display_name: string;
-  provider: string;
-  capabilities: string[];
-  input_token_limit: number | null;
-  output_token_limit: number | null;
-  supported_actions: string[];
-  status: string;
-  last_checked: string;
-  kind: string;
-  kind_inferred: boolean;
+  title: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface DefaultModel {
-  model_id: string | null;
-  valid: boolean;
-  reason: string | null;
+export interface ConversationListResponse {
+  items: ConversationItem[];
+  next_cursor: string | null;
 }
 
-export interface ModelsResponse {
-  models: Model[];
-  connected: boolean;
-  default_chat_model: DefaultModel | null;
+export interface MessageItem {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  status?: 'pending' | 'streaming' | 'done' | 'failed' | 'stopped';
+  model_used?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ConversationDetailResponse {
+  id: string;
+  title: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+  messages: MessageItem[];
 }

@@ -29,5 +29,3 @@ def delete_setting(conn: sqlite3.Connection, key: str) -> None:
     conn.execute("DELETE FROM settings WHERE key = ?;", (key,))
     conn.commit()
 
-
-SETTING_DEFAULT_CHAT_MODEL = "default_chat_model"

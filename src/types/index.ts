@@ -53,7 +53,6 @@ export interface SystemPromptPreset {
 
 export interface AppSettings {
   apiKey: string;
-  defaultModel: string;
   temperature: number;
   systemPrompt: string;
   theme: 'dark' | 'light';

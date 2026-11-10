@@ -13,9 +13,6 @@ EXPECTED_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/v1/credentials/gemini/test"),
     ("GET", "/api/v1/models"),
     ("POST", "/api/v1/models/refresh"),
-    ("GET", "/api/v1/models/default"),
-    ("PUT", "/api/v1/models/default"),
-    ("DELETE", "/api/v1/models/default"),
     ("GET", "/api/v1/models/health"),
     ("GET", "/api/v1/conversations"),
     ("POST", "/api/v1/conversations"),
@@ -54,5 +51,8 @@ def test_removed_routes_return_404(client: TestClient) -> None:
     assert client.get("/api/v1/settings").status_code == 404
     assert client.get("/api/v1/models/pool").status_code == 404
     assert client.get("/api/v1/models/failovers").status_code == 404
+    assert client.get("/api/v1/models/default").status_code == 404
+    assert client.put("/api/v1/models/default").status_code in (401, 404)
+    assert client.delete("/api/v1/models/default").status_code in (401, 404)
     assert client.post("/api/v1/models/health/scan").status_code in (401, 404)
     assert client.post("/api/v1/models/health/reset").status_code in (401, 404)

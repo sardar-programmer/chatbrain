@@ -8,20 +8,23 @@
     <!-- Pre-paint style to avoid ANY visual flash (theme & sidebar layout) -->
     <style>
       :root {
-        --sidebar-width: 260px;
+        --sidebar-width: 72px;
         color-scheme: light;
       }
       html {
-        background-color: #FAF9F5;
-        color: #141413;
+        background-color: #F8F7F5;
+        color: #1A1A1E;
       }
       html.dark {
-        background-color: #262624;
-        color: #FAF9F5;
+        background-color: #0B0D14;
+        color: #F4F4F6;
         color-scheme: dark;
       }
       html[data-sidebar-collapsed="true"] {
-        --sidebar-width: 56px;
+        --sidebar-width: 72px;
+      }
+      html[data-sidebar-collapsed="false"] {
+        --sidebar-width: 260px;
       }
       /* Pure CSS sidebar sizing from html attribute for instant first paint on desktop */
       @media (min-width: 768px) {
@@ -45,12 +48,11 @@
             document.documentElement.classList.remove('dark');
           }
           var paramCollapsed = params.get('collapsed');
-          var collapsed = paramCollapsed !== null ? paramCollapsed : localStorage.getItem('chat_brain_sidebar_collapsed');
-          if (collapsed === 'true') {
-            document.documentElement.setAttribute('data-sidebar-collapsed', 'true');
-          } else {
-            document.documentElement.removeAttribute('data-sidebar-collapsed');
-          }
+          var storedCollapsed = localStorage.getItem('chat_brain_sidebar_collapsed');
+          var isCollapsed = paramCollapsed !== null
+            ? paramCollapsed === 'true'
+            : (storedCollapsed !== null ? storedCollapsed === 'true' : true);
+          document.documentElement.setAttribute('data-sidebar-collapsed', String(isCollapsed));
         } catch (e) {
           // Local storage unavailable or blocked
         }

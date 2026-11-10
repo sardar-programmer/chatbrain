@@ -24,7 +24,6 @@ export function useSaveKeyMutation() {
     mutationFn: (apiKey: string) => saveGeminiKey(apiKey),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CREDENTIALS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['models'] });
       queryClient.invalidateQueries({ queryKey: ['status'] });
     },
   });
@@ -46,7 +45,6 @@ export function useDeleteKeyMutation() {
     mutationFn: () => deleteGeminiKey(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CREDENTIALS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['models'] });
       queryClient.invalidateQueries({ queryKey: ['status'] });
     },
   });

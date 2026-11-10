@@ -25,10 +25,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface p-6 shadow-lg duration-200 rounded-card sm:rounded-card">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-white/70 dark:border-white/10 bg-surface/90 dark:bg-surface/90 backdrop-blur-2xl p-6 shadow-2xl duration-200 rounded-2xl">
           <div className="flex flex-col space-y-2 text-left">
-            <DialogPrimitive.Title className="font-serif text-lg font-medium text-text-primary">
+            <DialogPrimitive.Title className="font-sans text-lg font-semibold text-text-primary tracking-tight">
               {title}
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="text-sm text-text-secondary leading-relaxed">
@@ -39,7 +39,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary hover:bg-sidebar-accent transition-colors focus:outline-none"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border/60 bg-surface/80 hover:bg-surface px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-all focus:outline-none"
             >
               {cancelText}
             </button>
@@ -49,10 +49,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onConfirm();
                 onOpenChange(false);
               }}
-              className={`inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none ${
+              className={`inline-flex h-9 items-center justify-center rounded-lg px-4 py-2 text-xs font-medium transition-all focus:outline-none ${
                 isDestructive
-                  ? 'bg-status-error text-white hover:bg-status-error/90'
-                  : 'bg-accent text-accent-foreground hover:bg-accent-hover'
+                  ? 'bg-status-error text-white hover:bg-status-error/90 shadow-sm'
+                  : 'btn-orange-gradient text-white shadow-sm'
               }`}
             >
               {confirmText}

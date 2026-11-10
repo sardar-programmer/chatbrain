@@ -19,7 +19,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-card border border-border bg-surface text-text-primary ${
+      className={`glass-card text-text-primary transition-all ${
         !noPadding ? 'p-5 sm:p-6' : ''
       } ${className}`}
     >
@@ -31,7 +31,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         >
           <div>
             {title && (
-              <h2 className="font-serif text-lg font-medium text-text-primary">{title}</h2>
+              <h2 className="font-sans text-base sm:text-lg font-semibold text-text-primary tracking-tight">
+                {title}
+              </h2>
             )}
             {description && (
               <p className="text-xs text-text-secondary mt-0.5">{description}</p>

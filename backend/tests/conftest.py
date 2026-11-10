@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Generator
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import pytest
@@ -29,6 +30,7 @@ def _m(
     capabilities: list[str] | None = None,
     input_token_limit: int | None = 1024,
     output_token_limit: int | None = 256,
+    last_checked: str | None = None,
 ) -> ModelInfo:
     """Helper to build a ModelInfo quickly."""
     if capabilities is None:
@@ -44,7 +46,7 @@ def _m(
         output_token_limit=output_token_limit,
         supported_actions=supported_actions,
         status="available",
-        last_checked="2026-10-21T00:00:00Z",
+        last_checked=last_checked or datetime.now(timezone.utc).isoformat(),
     )
 
 

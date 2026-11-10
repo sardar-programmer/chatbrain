@@ -1,10 +1,12 @@
 """API routes for Chat-Brain backend (v1) — core and credentials."""
 
+import logging
 import sqlite3
 from typing import Any
 from fastapi import APIRouter, Depends
 from app.db.database import check_db_health, get_db
 from app.errors import AuthException, ProviderException, ValidationException
+from app.services.ai.error_classifier import classify_provider_error
 from app.schemas.core import (
     BootstrapResponse,
     GeminiCredentialPutPayload,
@@ -13,7 +15,6 @@ from app.schemas.core import (
     HealthResponse,
 )
 from app.security import get_startup_token, verify_token
-from app.services.ai.model_health import get_health_store
 from app.services.ai.provider import get_ai_provider
 from app.services.key_store import (
     delete_gemini_key,
@@ -23,11 +24,11 @@ from app.services.key_store import (
 )
 from app.services.model_registry import (
     clear_cached_models,
-    get_cached_models,
-    save_cached_models,
+    discover_and_cache_models,
 )
 from app.config import get_settings
 
+logger = logging.getLogger("chatbrain.credentials")
 router = APIRouter(prefix="/api/v1")
 
 
@@ -80,11 +81,10 @@ def put_gemini_credentials(
     save_gemini_key(clean_key)
 
     try:
-        discovered = provider.list_models(clean_key)
-        save_cached_models(conn, discovered)
-        get_health_store().clear_not_found_cooldowns(conn)
-    except Exception:
-        pass
+        discover_and_cache_models(conn, clean_key)
+    except Exception as exc:
+        code = getattr(exc, "code", None) or classify_provider_error(exc).code
+        logger.warning("Model discovery failed after saving key: %s", code)
 
     return {"configured": True, "hint": get_gemini_key_hint()}
 

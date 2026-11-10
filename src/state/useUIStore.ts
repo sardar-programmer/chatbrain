@@ -29,11 +29,13 @@ function getInitialTheme(): ThemeMode {
 }
 
 function getInitialSidebarCollapsed(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   const urlParam = new URLSearchParams(window.location.search).get('collapsed');
   if (urlParam === 'true') return true;
   if (urlParam === 'false') return false;
-  return localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === 'true';
+  const stored = localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED);
+  if (stored !== null) return stored === 'true';
+  return true;
 }
 
 function getInitialGroups(): Record<string, boolean> {
@@ -56,11 +58,7 @@ function applyThemeToDOM(theme: ThemeMode) {
 
 function applySidebarToDOM(collapsed: boolean) {
   if (typeof window === 'undefined') return;
-  if (collapsed) {
-    document.documentElement.setAttribute('data-sidebar-collapsed', 'true');
-  } else {
-    document.documentElement.removeAttribute('data-sidebar-collapsed');
-  }
+  document.documentElement.setAttribute('data-sidebar-collapsed', String(collapsed));
 }
 
 export const useUIStore = create<UIState>((set, get) => ({

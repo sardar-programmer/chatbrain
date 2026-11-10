@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from app.db.database import create_connection
 from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider
@@ -36,10 +35,9 @@ def parse_sse(text: str) -> list[tuple[str, dict[str, Any]]]:
 
 
 def setup_chat(conn: Any) -> tuple[str, str]:
-    """Helper to configure API key, models, default model, and conversation."""
+    """Helper to configure API key, models, and conversation."""
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash", force=False)
     conv = chat_store.create_conversation(conn, "Stream Test")
     return conv["id"], "gemini-2.5-flash"
 
@@ -112,6 +110,7 @@ def test_normal_stream_flow_and_phases(
 
 def test_missing_key_or_invalid_model_emits_error_before_assistant_msg(
     authed_client: tuple[TestClient, dict[str, str]],
+    fake_provider: FakeProvider,
 ) -> None:
     client, headers = authed_client
     conn = create_connection()
@@ -138,6 +137,7 @@ def test_missing_key_or_invalid_model_emits_error_before_assistant_msg(
 
     # B. Key present, but empty pool (no chat model discovered)
     save_gemini_key("valid-secret-key-1234567890")
+    fake_provider.models_to_return = []
     res_no_model = client.post(
         f"/api/v1/conversations/{conv['id']}/reply",
         json={"content": "Another message"},
@@ -146,7 +146,7 @@ def test_missing_key_or_invalid_model_emits_error_before_assistant_msg(
     events_no_model = parse_sse(res_no_model.text)
     assert events_no_model[0][0] == "error"
     assert events_no_model[0][1]["category"] == "model"
-    assert "No chat model is available yet" in events_no_model[0][1]["message"]
+    assert "No chat model is available for your API key. Check the key in Settings." in events_no_model[0][1]["message"]
 
 
 def test_reply_validation_without_content(

@@ -36,12 +36,12 @@ export const MobileHeader: React.FC = () => {
   return (
     <>
       {/* Slim Top Bar for viewports < 768px (safe-area aware) */}
-      <header className="md:hidden flex h-13 w-full items-center justify-between px-3 border-b border-border bg-sidebar shrink-0 z-30 select-none pt-[env(safe-area-inset-top)]">
+      <header className="md:hidden flex h-14 w-full items-center justify-between px-3 border-b border-border/40 bg-surface/40 dark:bg-surface/20 backdrop-blur-md shrink-0 z-30 select-none pt-[env(safe-area-inset-top)]">
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(true)}
           aria-label="Open navigation menu"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-text-secondary hover:bg-sidebar-accent transition-colors focus:outline-none"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-sidebar-accent transition-colors focus:outline-none"
         >
           <Menu className="h-5 w-5 stroke-[1.75]" />
         </button>
@@ -51,7 +51,7 @@ export const MobileHeader: React.FC = () => {
         <Link
           to="/"
           aria-label="New chat"
-          className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-soft text-accent transition-colors focus:outline-none"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent hover:bg-accent/25 transition-colors focus:outline-none border border-accent/20"
         >
           <Plus className="h-5 w-5 stroke-[2]" />
         </Link>
@@ -67,13 +67,13 @@ export const MobileHeader: React.FC = () => {
         >
           {/* Backdrop with click-to-dismiss */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-[1px] transition-opacity animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
             onClick={() => setMobileDrawerOpen(false)}
             aria-hidden="true"
           />
 
           {/* Drawer Panel */}
-          <div className="relative flex w-[280px] max-w-[85vw] flex-col bg-sidebar h-dvh shadow-2xl z-10 animate-in slide-in-from-left duration-200 overflow-hidden pb-[env(safe-area-inset-bottom)]">
+          <div className="relative flex w-[280px] max-w-[85vw] flex-col glass-rail my-2 ml-2 h-[calc(100dvh-16px)] shadow-2xl z-10 animate-in slide-in-from-left duration-200 overflow-hidden pb-[env(safe-area-inset-bottom)]">
             <Sidebar isMobileDrawer onNavigate={() => setMobileDrawerOpen(false)} />
           </div>
         </div>

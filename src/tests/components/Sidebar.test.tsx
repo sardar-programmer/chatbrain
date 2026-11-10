@@ -3,16 +3,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '../../components/layout/Sidebar';
 import { useUIStore } from '../../state/useUIStore';
+import { queryClient } from '../../state/queryClient';
 
 const renderSidebar = (props = {}, initialRoute = '/') => {
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Tooltip.Provider delayDuration={0}>
-        <Sidebar {...props} />
-      </Tooltip.Provider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialRoute]}>
+        <Tooltip.Provider delayDuration={0}>
+          <Sidebar {...props} />
+        </Tooltip.Provider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 };
 
@@ -21,7 +25,7 @@ describe('Sidebar Architecture & Layout', () => {
     useUIStore.getState().setSidebarCollapsed(false);
   });
 
-  it('renders expanded mode with logo, new chat, chats section, settings, and theme toggle', () => {
+  it('renders expanded mode with logo, new chat, chats section, and settings', () => {
     renderSidebar();
 
     expect(screen.getAllByText('Chat-Brain').length).toBeGreaterThanOrEqual(1);
@@ -29,7 +33,6 @@ describe('Sidebar Architecture & Layout', () => {
     expect(screen.getByText('Chats')).toBeInTheDocument();
     expect(screen.getByText('Your chats will appear here.')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Theme')).toBeInTheDocument();
     expect(screen.getByLabelText('Collapse sidebar (Ctrl+B)')).toBeInTheDocument();
   });
 

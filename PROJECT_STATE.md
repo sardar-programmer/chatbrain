@@ -1,14 +1,14 @@
 # Chat-Brain: Project State
 Personal, single-user, 100% local app. No cloud, no auth, no telemetry.
 Target user: Data-science student. Focused study assistant and tutor.
+Project location: D:\Projects\chat-brain
 
 ## Scope & Screens
 - Final screens:
   - Chat (home `/` & `/chat/:id`)
   - Settings (`/settings`)
   - Datasets (`/datasets` - M2)
-  - Code Lab (`/code-lab` - M3)
-- RULE: No placeholder pages, no sidebar entries for unbuilt screens, no model names in chat UI.
+- RULE: No placeholder pages, no sidebar entries for unbuilt screens, no model names in chat UI. Python execution removed from roadmap: Python is taught by the AI, not executed.
 
 ## Current
 - Slice: M1 (Chat with real local backend)
@@ -24,18 +24,20 @@ Target user: Data-science student. Focused study assistant and tutor.
   - M1.3d (auto-pool controls backend: GET /api/v1/models/pool, PATCH /api/v1/models/pool/{model_id}, POST /api/v1/models/health/reset, GET /api/v1/models/failovers, GET /api/v1/status updated with pool_summary & failover_count_24h, 123 pytest tests passing)
   - C0a (frontend cleanup: removed placeholder feature folders and deleted technical pages [ModelsView, StatusView, auto-pool UI, poolHelpers, useModelPool, modelFilter]; reduced navigation to Logo, New chat, Chats empty text, Settings, Theme toggle; simplified routes to `/`, `/chat/:id`, `/settings`, `*`; reorganized Settings into ApiKeySection, PreferredModelSection, AppearanceSection; cleaned API client & types; updated Sidebar tests and added PreferredModelSection tests; all files strictly under 250 lines)
   - C0b (backend cleanup: trimmed API to 23 endpoints; deleted pool_routes.py and unused endpoints GET/PATCH /models/pool, POST /models/health/scan, POST /models/health/reset, GET /models/failovers, GET /status, GET /settings, PUT /settings/{key}; simplified rank_candidates and failover_runner by removing excluded parameter; kept SQLite failover_events writes as internal debug log; kept internal settings helpers; added guard test asserting exact route set; 112 pytest unit/integration tests passing; all files strictly under 250 lines)
+  - C1 (small cleanup: frontend appearance exists only in Settings > Appearance; removed ThemeToggle from AppShell/Sidebar and deleted component; Settings simplified to exactly Gemini API key and Appearance; removed PreferredModelSection, useDefaultModel, useModels, and client model types/functions; backend removed GET/PUT/DELETE /models/default and default_model logic; failover engine ranks candidates purely by known TTFT ascending, then fewer consecutive failures, then id; auto model discovery on key save [failure logs error code without failing key save], lazy discovery on empty cache in reply path [max 10s], background refresh when cache older than 24h; exact 20 endpoints guarded; all files strictly under 250 lines)
+  - G1 (glass UI foundation: static CSS .app-bg gradient background, floating 72px glass-rail sidebar defaulting to collapsed with logo toggle and pinned settings, Newsreader serif welcome screen with accent .glass-icon-tile, .glass-composer with disabled + and mic tools, accent-colored .glass-chips, .glass-card settings sections, light & dark theme support, zero raw hex in components, all files strictly under 250 lines)
 - Next: M1.4a (Chat screen with real streaming, optimistic sends, auto-scroll, stop reply, regenerate, error states - no model names in UI)
 
 ## Roadmap
 - C0a: Frontend cleanup (DONE)
 - C0b: Backend cleanup (DONE)
+- C1: Small cleanup (DONE)
+- G1: Glass UI foundation (DONE)
 - M1.4a: Chat screen with real streaming, optimistic sends, auto-scroll, stop reply, regenerate, error states
 - M1.4b: Chat extras (conversations sidebar list, auto-title, search, pin, rename, delete)
 - M1.5: DS tutor prompt and study chips
 - M2a: Datasets backend
 - M2b: Datasets screen with "Ask AI about this dataset"
-- M3a: Code runner backend
-- M3b: Code Lab
 - Later (only when asked): PDF/notes Q&A, projects, export, quiz mode
 
 ## Decisions (do not re-debate)
@@ -45,7 +47,7 @@ Target user: Data-science student. Focused study assistant and tutor.
 - No hardcoded model names; models come from API discovery
 - Backend binds 127.0.0.1 only; state-changing requests and protected endpoints need the per-startup token
 - Frontend API client note: must re-fetch /bootstrap and retry once on 401 because the token changes whenever the server reloads
-- Chat UI NEVER shows model names or failover switches (silent selection by backend; optional preferred model tried first).
+- Chat UI NEVER shows model names or failover switches (silent selection by backend).
 - File constraint: Keep all files strictly under 250 lines across backend and frontend.
 
 ## Known issues / notes

@@ -17,16 +17,16 @@ export const AppearanceSection: React.FC = () => {
       title="Appearance"
       description="Choose how Chat-Brain looks on your device. Applied instantly without flash."
     >
-      <div className="inline-flex rounded-md border border-border bg-sidebar p-1 gap-1">
+      <div className="inline-flex rounded-xl border border-white/60 dark:border-white/10 bg-surface/50 dark:bg-surface/30 backdrop-blur-xl p-1 gap-1 shadow-inner">
         {themeOptions.map(({ mode, label, icon }) => (
           <button
             key={mode}
             type="button"
             onClick={() => setTheme(mode)}
-            className={`flex items-center gap-2 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium transition-all duration-150 ${
               theme === mode
-                ? 'bg-surface text-accent shadow-sm'
-                : 'text-text-secondary hover:text-text-primary'
+                ? 'bg-gradient-to-r from-accent to-accent-hover text-white shadow-sm font-semibold'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface/50'
             }`}
           >
             {icon}

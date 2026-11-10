@@ -17,7 +17,7 @@ describe('Composer Component', () => {
 
   it('enables send button when content is typed', () => {
     renderWithTooltip(<Composer />);
-    const textarea = screen.getByPlaceholderText('Ask anything or request data analysis...');
+    const textarea = screen.getByPlaceholderText('Ask anything about data science, Python or SQL...');
     const sendButton = screen.getByLabelText('Send message');
 
     expect(sendButton).toBeDisabled();
@@ -29,7 +29,7 @@ describe('Composer Component', () => {
   it('calls onSubmit on Enter without shift', () => {
     const handleSubmit = vi.fn();
     renderWithTooltip(<Composer onSubmit={handleSubmit} />);
-    const textarea = screen.getByPlaceholderText('Ask anything or request data analysis...');
+    const textarea = screen.getByPlaceholderText('Ask anything about data science, Python or SQL...');
 
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
@@ -40,7 +40,7 @@ describe('Composer Component', () => {
   it('does not submit on Shift+Enter', () => {
     const handleSubmit = vi.fn();
     renderWithTooltip(<Composer onSubmit={handleSubmit} />);
-    const textarea = screen.getByPlaceholderText('Ask anything or request data analysis...');
+    const textarea = screen.getByPlaceholderText('Ask anything about data science, Python or SQL...');
 
     fireEvent.change(textarea, { target: { value: 'Line 1' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });

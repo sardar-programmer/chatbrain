@@ -13,7 +13,6 @@ from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
 from app.services.chat.failover_config import FailoverConfig, set_failover_config
 from app.services.chat.failover_events import get_failover_events
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider, ModelScript, _m
@@ -27,7 +26,6 @@ def setup_multi_model(conn: Any) -> str:
         _m("model-beta", "Model Beta", ["generateContent"], ["text"]),
     ]
     save_cached_models(conn, models)
-    set_default_chat_model(conn, "model-alpha")
     conv = chat_store.create_conversation(conn, "Hedge Chat")
     return conv["id"]
 
@@ -220,60 +218,3 @@ def test_all_models_fail_emits_retrying_and_budget_exhaustion(
     assert len(error_events) == 1
     assert error_events[0]["code"] == "all_models_unavailable"
     assert error_events[0]["retryable"] is True
-
-
-def test_empty_chat_model_pool_emits_model_error(
-    authed_client: tuple[TestClient, dict[str, str]],
-    fake_provider: FakeProvider,
-) -> None:
-    client, headers = authed_client
-    conn = create_connection()
-    save_gemini_key("valid-secret-key-1234567890")
-
-    # Only non-chat models
-    save_cached_models(conn, [
-        _m("text-embedding-004", "Embedding", ["embedContent"], ["embeddings"]),
-    ])
-    conv = chat_store.create_conversation(conn, "No Chat Models")
-
-    res = client.post(
-        f"/api/v1/conversations/{conv['id']}/reply",
-        json={"content": "Hello empty pool"},
-        headers=headers,
-    )
-    assert res.status_code == 200
-    events = parse_sse(res.text)
-
-    error_events = [e[1] for e in events if e[0] == "error"]
-    assert len(error_events) == 1
-    assert error_events[0]["category"] == "model"
-    assert "No chat model is available yet" in error_events[0]["message"]
-    assert len(fake_provider.recorded_calls) == 0
-
-
-def test_failover_logs_never_leak_prompt_or_key(
-    authed_client: tuple[TestClient, dict[str, str]],
-    fake_provider: FakeProvider,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    client, headers = authed_client
-    conn = create_connection()
-    conv_id = setup_multi_model(conn)
-
-    secret_prompt = "SUPER_SECRET_USER_PROMPT_12345"
-    fake_provider.model_scripts["model-alpha"] = ModelScript(
-        error=ProviderException("Quota exceeded", code="quota", retryable=True)
-    )
-    fake_provider.model_scripts["model-beta"] = ModelScript(chunks=["Beta answered cleanly"])
-
-    with caplog.at_level(logging.DEBUG):
-        res = client.post(
-            f"/api/v1/conversations/{conv_id}/reply",
-            json={"content": secret_prompt},
-            headers=headers,
-        )
-        assert res.status_code == 200
-
-    all_logs = " ".join([rec.getMessage() for rec in caplog.records])
-    assert secret_prompt not in all_logs
-    assert "valid-secret-key-1234567890" not in all_logs

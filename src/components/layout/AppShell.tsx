@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
-import { ThemeToggle } from '../shared/ThemeToggle';
 import { useUIStore } from '../../state/useUIStore';
 
 export const AppShell: React.FC = () => {
@@ -21,24 +20,22 @@ export const AppShell: React.FC = () => {
   }, [toggleSidebar]);
 
   return (
-    <div className="flex h-dvh w-screen overflow-hidden bg-background text-text-primary">
-      {/* Desktop Sidebar (hidden on < 768px, 56px or 260px on >= 768px) */}
+    <div className="flex h-dvh w-screen overflow-hidden bg-transparent text-text-primary relative selection:bg-accent/20">
+      {/* Static CSS page background */}
+      <div className="app-bg" aria-hidden="true" />
+
+      {/* Desktop Floating Glass Sidebar Rail */}
       <Sidebar />
 
       {/* Main Column Wrapper */}
-      <div className="flex flex-1 flex-col h-full min-w-0 overflow-hidden relative">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-hidden relative z-10 bg-transparent">
         {/* Mobile Slim Header & Drawer */}
         <MobileHeader />
-
-        {/* Desktop Pinned Theme Toggle (Top-right of main content, no background, non-intrusive) */}
-        <div className="hidden md:block absolute top-3.5 right-4 z-20 pointer-events-auto">
-          <ThemeToggle />
-        </div>
 
         {/* The ONLY scroll container in the entire application */}
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto overflow-x-hidden focus:outline-none relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden focus:outline-none relative bg-transparent"
         >
           <Outlet />
         </main>

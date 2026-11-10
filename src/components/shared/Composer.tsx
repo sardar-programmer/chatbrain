@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Plus, Mic, X, Square } from 'lucide-react';
+import { ArrowUp, Mic, Plus, Square } from 'lucide-react';
 import { NavTooltip } from '../layout/NavTooltip';
 
 export interface ComposerAttachment {
@@ -10,6 +10,7 @@ export interface ComposerAttachment {
 
 interface ComposerProps {
   placeholder?: string;
+  initialValue?: string;
   onSubmit?: (content: string, attachments: ComposerAttachment[]) => void;
   isStreaming?: boolean;
   onStop?: () => void;
@@ -19,7 +20,8 @@ interface ComposerProps {
 }
 
 export const Composer: React.FC<ComposerProps> = ({
-  placeholder = 'Ask anything or request data analysis...',
+  placeholder = 'Ask anything about data science, Python or SQL...',
+  initialValue,
   onSubmit,
   isStreaming = false,
   onStop,
@@ -27,10 +29,18 @@ export const Composer: React.FC<ComposerProps> = ({
   className = '',
   autoFocus = false,
 }) => {
-  const [content, setContent] = useState('');
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  const [content, setContent] = useState(initialValue || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus and populate when initialValue changes (e.g. prompt chips)
+  useEffect(() => {
+    if (initialValue !== undefined) {
+      setContent(initialValue);
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }
+  }, [initialValue]);
 
   // Auto-grow textarea up to ~8 lines (~192px)
   const adjustHeight = () => {
@@ -47,12 +57,10 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleSend = () => {
     const trimmed = content.trim();
-    if (!trimmed && attachments.length === 0) return;
-    if (disabled || isStreaming) return;
+    if (!trimmed || disabled || isStreaming) return;
 
-    onSubmit?.(trimmed, attachments);
+    onSubmit?.(trimmed, []);
     setContent('');
-    setAttachments([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -65,60 +73,12 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const newAttachments: ComposerAttachment[] = Array.from(files).map(f => ({
-      id: Math.random().toString(36).substring(2, 9),
-      name: f.name,
-      size: f.size,
-    }));
-
-    setAttachments(prev => [...prev, ...newAttachments]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id));
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  };
-
-  const canSend = (content.trim().length > 0 || attachments.length > 0) && !disabled;
+  const canSend = content.trim().length > 0 && !disabled;
 
   return (
-    <div className={`w-full max-w-2xl mx-auto ${className}`}>
-      {/* Composer Card with hairline border and zero focus rings */}
-      <div className="relative rounded-composer border border-border/80 bg-surface px-4 pt-3 pb-2 shadow-subtle transition-colors focus-within:border-border">
-        {/* Attachment Chips */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-2 pb-2 border-b border-border/40">
-            {attachments.map(att => (
-              <span
-                key={att.id}
-                className="inline-flex items-center gap-1.5 rounded-md bg-sidebar px-2 py-0.5 text-[11px] text-text-secondary border border-border/50 select-none"
-              >
-                <span className="truncate max-w-[140px] font-medium">{att.name}</span>
-                <span className="text-[10px] text-text-tertiary">({formatFileSize(att.size)})</span>
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(att.id)}
-                  className="text-text-tertiary hover:text-text-primary focus:outline-none"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <span className="text-[11px] text-text-tertiary italic ml-1">
-              Attachments are not processed yet
-            </span>
-          </div>
-        )}
-
+    <div className={`w-full max-w-2xl mx-auto bg-transparent ${className}`}>
+      {/* Floating Glass Container */}
+      <div className="glass-composer px-5 pt-4 pb-3 focus-within:outline-none">
         {/* Dynamic Auto-growing Textarea */}
         <textarea
           ref={textareaRef}
@@ -134,27 +94,20 @@ export const Composer: React.FC<ComposerProps> = ({
 
         {/* Bottom Controls Row */}
         <div className="flex items-center justify-between pt-2">
-          {/* Left Action Tools */}
-          <div className="flex items-center gap-1">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <NavTooltip content="Attach file (UI only)">
+          {/* Left Action Tools: Disabled with "Coming later" tooltips */}
+          <div className="flex items-center gap-2">
+            <NavTooltip content="Coming later">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Attach file"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-text-tertiary hover:bg-sidebar-accent hover:text-text-primary transition-colors focus:outline-none"
+                disabled
+                aria-label="Add attachment"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-text-tertiary/40 cursor-not-allowed focus:outline-none"
               >
                 <Plus className="h-4 w-4 stroke-[2]" />
               </button>
             </NavTooltip>
 
-            <NavTooltip content="Voice dictation (Coming later)">
+            <NavTooltip content="Coming later">
               <button
                 type="button"
                 disabled
@@ -166,7 +119,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </NavTooltip>
           </div>
 
-          {/* Right Action: Circular Accent Send / Stop button */}
+          {/* Right Action: Send / Stop button */}
           <div className="flex items-center">
             {isStreaming ? (
               <NavTooltip content="Stop generating">
@@ -174,9 +127,9 @@ export const Composer: React.FC<ComposerProps> = ({
                   type="button"
                   onClick={onStop}
                   aria-label="Stop generation"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-accent hover:bg-accent-hover text-white transition-all shadow-sm focus:outline-none active:scale-95"
+                  className="btn-send focus:outline-none cursor-pointer"
                 >
-                  <Square className="h-3.5 w-3.5 fill-current" />
+                  <Square className="h-4 w-4 fill-current" />
                 </button>
               </NavTooltip>
             ) : (
@@ -186,13 +139,9 @@ export const Composer: React.FC<ComposerProps> = ({
                   onClick={handleSend}
                   disabled={!canSend}
                   aria-label="Send message"
-                  className={`flex h-8 w-8 items-center justify-center rounded-full transition-all focus:outline-none ${
-                    canSend
-                      ? 'bg-accent hover:bg-accent-hover text-white shadow-sm active:scale-95 cursor-pointer'
-                      : 'bg-text-tertiary/20 text-text-tertiary cursor-not-allowed opacity-50'
-                  }`}
+                  className="btn-send focus:outline-none"
                 >
-                  <ArrowUp className="h-4 w-4 stroke-[2.2]" />
+                  <ArrowUp className="h-4 w-4 stroke-[2.5]" />
                 </button>
               </NavTooltip>
             )}

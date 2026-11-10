@@ -28,12 +28,6 @@ class GeminiTestResponse(BaseModel):
     message: str
 
 
-class DefaultChatModelStatus(BaseModel):
-    model_id: str | None = None
-    valid: bool
-    reason: str | None = None
-
-
 class ModelWithKind(ModelInfo):
     """ModelInfo enriched with computed kind fields."""
 
@@ -44,9 +38,3 @@ class ModelWithKind(ModelInfo):
 class ModelsListResponse(BaseModel):
     models: list[ModelWithKind]
     connected: bool
-    default_chat_model: DefaultChatModelStatus | None = None
-
-
-class DefaultModelPayload(BaseModel):
-    model_id: str = Field(..., min_length=1)
-    force: bool = False

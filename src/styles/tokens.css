@@ -1,47 +1,63 @@
 @layer base {
   :root {
-    --background: 43 27% 97%;       /* #FAF9F5 */
-    --sidebar: 50 24% 95%;          /* #F5F4ED */
-    --sidebar-accent: 43 20% 90%;   /* subtle active item background */
+    --background: 40 11% 97%;       /* #F8F7F5 */
+    --sidebar: 250 14% 95%;          /* #F1F0F4 */
+    --sidebar-accent: 20 80% 94%;    /* subtle warm orange tinted active */
     --surface: 0 0% 100%;           /* #FFFFFF */
     --elevated: 0 0% 100%;          /* #FFFFFF */
-    --border: 48 18% 89%;           /* #E8E6DC */
-    --text-primary: 60 3% 8%;       /* #141413 */
-    --text-secondary: 50 3% 44%;    /* #73726C */
-    --text-tertiary: 47 5% 62%;     /* #A3A19A */
-    --accent: 15 65% 60%;           /* #D97757 */
-    --accent-hover: 15 60% 51%;     /* #C6613F */
-    --accent-soft: 18 56% 92%;      /* #F5E6DF */
+    --border: 240 6% 88%;           /* subtle border */
+    --text-primary: 240 7% 11%;      /* #1A1A1E */
+    --text-secondary: 240 5% 41%;    /* #63636E */
+    --text-tertiary: 240 5% 59%;     /* #92929D */
+    --accent: 20 100% 57%;           /* #FF6B22 */
+    --accent-hover: 18 100% 50%;     /* #FF4D00 */
+    --accent-soft: 24 100% 94%;      /* soft warm glow */
     --accent-foreground: 0 0% 100%; /* #FFFFFF */
-    --status-success: 119 21% 45%;  /* #5B8C5A */
-    --status-warning: 36 65% 48%;   /* #C98A2B */
-    --status-error: 5 52% 49%;      /* #C0463B */
-    --status-info: 211 28% 55%;     /* #6B8CAE */
+    --status-success: 142 69% 36%;
+    --status-warning: 38 92% 50%;
+    --status-error: 0 84% 60%;
+    --status-info: 217 91% 60%;
     
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-card: 16px;
     --radius-composer: 24px;
     --radius-pill: 9999px;
+
+    --glass-bg: rgba(255, 255, 255, 0.60);
+    --glass-bg-subtle: rgba(255, 255, 255, 0.40);
+    --glass-bg-elevated: rgba(255, 255, 255, 0.80);
+    --glass-border: rgba(255, 255, 255, 0.75);
+    --glass-border-subtle: rgba(0, 0, 0, 0.06);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
+    --glass-shadow-glow: 0 0 24px 0 rgba(255, 107, 34, 0.15);
   }
 
   .dark {
-    --background: 60 3% 15%;        /* #262624 */
-    --sidebar: 30 3% 12%;           /* #1F1E1D */
-    --sidebar-accent: 40 4% 18%;    /* subtle active item background */
-    --surface: 60 2% 19%;           /* #30302E */
-    --elevated: 60 3% 22%;          /* #3A3A37 */
-    --border: 60 3% 24%;            /* #3E3E3A */
-    --text-primary: 43 27% 97%;     /* #FAF9F5 */
-    --text-secondary: 45 7% 63%;    /* #A6A39A */
-    --text-tertiary: 45 4% 47%;     /* #7C7A73 */
-    --accent: 15 65% 60%;           /* #D97757 */
-    --accent-hover: 15 72% 66%;     /* #E58A6B */
-    --accent-soft: 20 22% 19%;      /* #3D2E27 */
+    --background: 227 29% 6%;        /* #0B0D14 */
+    --sidebar: 225 32% 10%;          /* #111521 */
+    --sidebar-accent: 226 27% 18%;   /* subtle active item background */
+    --surface: 226 27% 12%;          /* #171B28 */
+    --elevated: 226 25% 16%;         /* #1E2333 */
+    --border: 226 20% 20%;           /* #282F45 */
+    --text-primary: 240 10% 96%;     /* #F4F4F6 */
+    --text-secondary: 230 13% 66%;   /* #9FA2B4 */
+    --text-tertiary: 231 11% 44%;    /* #64687D */
+    --accent: 20 100% 57%;           /* #FF6B22 */
+    --accent-hover: 18 100% 50%;     /* #FF4D00 */
+    --accent-soft: 20 70% 16%;       /* subtle warm orange tint */
     --accent-foreground: 0 0% 100%; /* #FFFFFF */
-    --status-success: 118 21% 53%;  /* #6E9E6D */
-    --status-warning: 37 65% 54%;   /* #D89B3D */
-    --status-error: 5 60% 56%;      /* #D2584D */
-    --status-info: 211 35% 62%;     /* #7E9EBE */
+    --status-success: 142 60% 45%;
+    --status-warning: 38 85% 55%;
+    --status-error: 0 75% 65%;
+    --status-info: 217 80% 65%;
+
+    --glass-bg: rgba(23, 27, 40, 0.65);
+    --glass-bg-subtle: rgba(17, 21, 33, 0.50);
+    --glass-bg-elevated: rgba(30, 35, 51, 0.80);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-border-subtle: rgba(255, 255, 255, 0.05);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
+    --glass-shadow-glow: 0 0 24px 0 rgba(255, 107, 34, 0.20);
   }
 }

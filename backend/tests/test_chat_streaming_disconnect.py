@@ -9,7 +9,6 @@ from app.services.ai.provider import StreamChunk
 from app.services.chat import chat_store
 from app.services.chat.chat_stream_session import _active_locks, acquire_stream_lock
 from app.services.chat.chat_streamer import stream_reply_events
-from app.services.default_model import set_default_chat_model
 from app.services.key_store import save_gemini_key
 from app.services.model_registry import save_cached_models
 from tests.conftest import FIXTURE_MODELS, FakeProvider
@@ -20,7 +19,6 @@ def setup_chat(conn: Any, title: str) -> str:
     """Helper setting up credentials, models, and conversation."""
     save_gemini_key("valid-secret-key-1234567890")
     save_cached_models(conn, FIXTURE_MODELS)
-    set_default_chat_model(conn, "gemini-2.5-flash")
     conv = chat_store.create_conversation(conn, title)
     return conv["id"]
 

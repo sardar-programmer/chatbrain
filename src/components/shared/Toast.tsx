@@ -52,7 +52,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map(t => (
           <div
             key={t.id}
-            className="pointer-events-auto flex items-center justify-between gap-3 rounded-md border border-border bg-elevated px-4 py-2.5 text-xs sm:text-sm text-text-primary shadow-subtle transition-all duration-200 animate-in fade-in slide-in-from-top-2"
+            className="pointer-events-auto flex items-center justify-between gap-3 rounded-xl border border-white/70 dark:border-white/10 bg-surface/85 dark:bg-surface/85 backdrop-blur-2xl px-4 py-2.5 text-xs sm:text-sm text-text-primary shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all duration-200 animate-in fade-in slide-in-from-top-2"
           >
             <span className="leading-snug">{t.message}</span>
             {t.undoAction && (
