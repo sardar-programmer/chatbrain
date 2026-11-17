@@ -58,14 +58,14 @@ export const NewChatView: React.FC = () => {
   };
 
   return (
-    <div className="g-rise flex flex-col items-center justify-center min-h-[calc(100dvh-5rem)] px-4 py-8 sm:py-14 max-w-2xl mx-auto text-center w-full">
+    <div className="g-rise flex flex-col items-center justify-center min-h-[calc(100dvh-5rem)] px-4 py-8 sm:py-12 max-w-[900px] mx-auto text-center w-full">
       {/* Sparkle Icon in .glass-icon-tile */}
       <div className="glass-icon-tile text-accent mb-6">
         <Sparkles className="h-8 w-8 stroke-[1.75]" />
       </div>
 
-      {/* Heading in Newsreader Serif Font */}
-      <h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-normal text-text-primary mb-2.5 tracking-tight">
+      {/* Heading in Newsreader Serif Font - clamped ~2.35rem */}
+      <h1 className="font-serif text-[clamp(1.75rem,3.2vw,2.35rem)] font-normal text-text-primary mb-2.5 tracking-tight">
         How can I help you today?
       </h1>
 
@@ -74,9 +74,10 @@ export const NewChatView: React.FC = () => {
         Start a new conversation, explore data science topics, or debug code.
       </p>
 
-      {/* Floating Glass Composer */}
-      <div className="w-full mb-6">
+      {/* Floating Glass Composer - max width about 900px */}
+      <div className="w-full max-w-[900px] mb-6">
         <Composer
+          className="max-w-[900px]"
           initialValue={activePrompt}
           onSubmit={handleSubmit}
           disabled={isSubmitting}
@@ -84,8 +85,8 @@ export const NewChatView: React.FC = () => {
         />
       </div>
 
-      {/* 4 Glass Suggestion Chips with Accent Icons */}
-      <div className="flex flex-wrap items-center justify-center gap-2.5 max-w-xl">
+      {/* 4 Glass Suggestion Chips: ONE row at >=1024px, same max width 900px, 8px gap, padding 0.5rem 0.85rem, font 14px */}
+      <div className="w-full max-w-[900px] flex flex-wrap lg:flex-nowrap items-center justify-center gap-2">
         {PROMPT_SUGGESTIONS.map(s => {
           const Icon = s.icon;
           return (
@@ -93,7 +94,7 @@ export const NewChatView: React.FC = () => {
               key={s.label}
               type="button"
               onClick={() => handleChipClick(s.prompt)}
-              className="glass-chip text-xs font-normal text-text-secondary hover:text-text-primary cursor-pointer select-none"
+              className="glass-chip text-[14px] font-normal text-text-secondary hover:text-text-primary cursor-pointer select-none px-[0.85rem] py-[0.5rem] whitespace-nowrap shrink-0 lg:shrink flex-1 lg:flex-initial justify-center gap-2"
             >
               <Icon className="h-4 w-4 text-accent shrink-0" />
               <span>{s.label}</span>

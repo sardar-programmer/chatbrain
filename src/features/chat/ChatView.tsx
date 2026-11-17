@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { useParams, useLocation } from 'react-router-dom';
+import { MessageSquare } from 'lucide-react';
 import { Composer, ComposerAttachment } from '../../components/shared/Composer';
 import { ChatMessage } from './ChatMessage';
 import { getConversation, getBootstrapToken } from '../../services/api/client';
@@ -39,7 +39,6 @@ export const ChatView: React.FC = () => {
           setMessages(data.messages || []);
         }
       } catch {
-        // Fallback or demo conversation
         if (active) {
           setConversationTitle('Chat Session');
           setMessages([]);
@@ -178,27 +177,15 @@ export const ChatView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-full max-w-3xl mx-auto px-4 pt-4 pb-28">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between py-2 border-b border-border/40 mb-4 sticky top-0 bg-background/80 backdrop-blur-xl z-20">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-sidebar-accent transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>New Chat</span>
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-text-primary truncate max-w-[200px] sm:max-w-xs">
+    <div className="flex flex-col min-h-full max-w-3xl mx-auto px-4 pt-6 pb-36">
+      {/* Conversation title: 14px muted text, non-sticky, no background, no border */}
+      {conversationTitle && (
+        <div className="pb-4">
+          <h2 className="text-[14px] text-text-secondary truncate font-normal select-none">
             {conversationTitle}
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-text-tertiary bg-surface/60 border border-border/40 rounded-full px-2 py-0.5 font-mono">
-            <span className="h-1.5 w-1.5 rounded-full bg-status-success animate-pulse" />
-            Active
-          </span>
+          </h2>
         </div>
-      </div>
+      )}
 
       {/* Messages Container */}
       <div className="flex-1 flex flex-col justify-start">
@@ -219,16 +206,18 @@ export const ChatView: React.FC = () => {
             key={m.id || idx}
             message={m}
             isStreaming={isStreaming && idx === messages.length - 1 && m.role === 'assistant'}
+            onRegenerate={streamReply}
           />
         ))}
         <div ref={bottomRef} className="h-4" />
       </div>
 
-      {/* Floating Bottom Glass Composer */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[var(--sidebar-width,260px)] z-30 p-4 pointer-events-none transition-all">
+      {/* Floating Bottom Glass Composer (aligned with max-w-3xl message column) */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-[var(--sidebar-width,72px)] z-30 p-4 pointer-events-none transition-all">
         <div className="max-w-3xl mx-auto pointer-events-auto">
           <Composer
-            placeholder="Type your message..."
+            variant="chat"
+            placeholder="Ask anything..."
             onSubmit={handleComposerSubmit}
             isStreaming={isStreaming}
             onStop={handleStop}

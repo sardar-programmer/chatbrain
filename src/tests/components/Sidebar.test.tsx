@@ -33,7 +33,7 @@ describe('Sidebar Architecture & Layout', () => {
     expect(screen.getByText('Chats')).toBeInTheDocument();
     expect(screen.getByText('Your chats will appear here.')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByLabelText('Collapse sidebar (Ctrl+B)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Close sidebar')).toBeInTheDocument();
   });
 
   it('renders collapsed mode with icons only and hides expanded labels', () => {
@@ -47,7 +47,7 @@ describe('Sidebar Architecture & Layout', () => {
     expect(screen.queryByText('Settings')).toBeNull();
 
     // Toggle button should now offer to expand
-    expect(screen.getByLabelText('Expand sidebar (Ctrl+B)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Open sidebar')).toBeInTheDocument();
   });
 
   it('enforces strict 40x40 (h-10 w-10 shrink-0) dimensions on collapsed nav links', () => {
@@ -67,7 +67,7 @@ describe('Sidebar Architecture & Layout', () => {
   it('toggles collapsed state on click of the header toggle button', () => {
     renderSidebar();
 
-    const collapseButton = screen.getByLabelText('Collapse sidebar (Ctrl+B)');
+    const collapseButton = screen.getByLabelText('Close sidebar');
     fireEvent.click(collapseButton);
 
     expect(useUIStore.getState().sidebarCollapsed).toBe(true);

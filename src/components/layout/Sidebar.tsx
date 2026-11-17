@@ -1,9 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { QueryClientContext, useQuery } from '@tanstack/react-query';
-import { MessageSquare, Plus, Settings, X } from 'lucide-react';
+import { MessageSquare, PanelLeftClose, PanelLeftOpen, Plus, Settings, X } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Logo } from '../shared/Logo';
+import { Logo, LogoIcon } from '../shared/Logo';
 import { NavTooltip } from './NavTooltip';
 import { SidebarNavItem } from './SidebarNavItem';
 import { useUIStore } from '../../state/useUIStore';
@@ -93,46 +93,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileDrawer = false, onNavi
             : undefined
         }
       >
-        {/* Top Logo Tile */}
-        <div className="flex h-10 items-center justify-center shrink-0 mb-3">
+        {/* Top Header Row / Logo Cell */}
+        <div className="flex shrink-0 items-center justify-center">
           {isMobileDrawer ? (
-            <div className="flex w-full items-center justify-between">
+            <div className="flex w-full items-center justify-between h-10">
               <Logo />
               <button
                 type="button"
                 onClick={onNavigate}
                 aria-label="Close navigation"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-tertiary hover:bg-sidebar-accent hover:text-text-primary transition-colors focus:outline-none shrink-0"
+                className="rail-btn text-text-tertiary hover:text-text-primary focus:outline-none"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : isCollapsed ? (
-            <NavTooltip content="Expand sidebar (Ctrl+B)">
+            <NavTooltip content="Open sidebar">
               <button
                 type="button"
                 onClick={toggleSidebar}
-                aria-label="Expand sidebar (Ctrl+B)"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-text-secondary hover:text-text-primary transition-colors focus:outline-none"
+                aria-label="Open sidebar"
+                className="rail-btn group relative flex h-10 w-10 shrink-0 items-center justify-center focus:outline-none"
               >
-                <Logo collapsed />
+                <LogoIcon className="transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0" />
+                <PanelLeftOpen className="absolute h-5 w-5 stroke-[1.75] text-text-secondary transition-opacity duration-200 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
               </button>
             </NavTooltip>
           ) : (
-            <div className="flex w-full items-center justify-between">
-              <NavTooltip content="Collapse sidebar (Ctrl+B)">
+            <div className="flex w-full items-center justify-between h-10">
+              <Logo />
+              <NavTooltip content="Close sidebar">
                 <button
                   type="button"
                   onClick={toggleSidebar}
-                  aria-label="Collapse sidebar (Ctrl+B)"
-                  className="flex items-center gap-2 rounded-xl text-text-primary hover:text-accent transition-colors focus:outline-none"
+                  aria-label="Close sidebar"
+                  className="rail-btn text-text-tertiary hover:text-text-primary focus:outline-none"
                 >
-                  <Logo />
+                  <PanelLeftClose className="h-5 w-5 stroke-[1.75]" />
                 </button>
               </NavTooltip>
             </div>
           )}
         </div>
+
+        {/* Thin hairline divider under the logo cell */}
+        <div className="w-full h-px bg-border/40 my-2 shrink-0" />
 
         {/* Navigation Area */}
         <div

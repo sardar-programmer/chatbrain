@@ -17,10 +17,11 @@ interface ComposerProps {
   disabled?: boolean;
   className?: string;
   autoFocus?: boolean;
+  variant?: 'default' | 'chat';
 }
 
 export const Composer: React.FC<ComposerProps> = ({
-  placeholder = 'Ask anything about data science, Python or SQL...',
+  placeholder,
   initialValue,
   onSubmit,
   isStreaming = false,
@@ -28,9 +29,16 @@ export const Composer: React.FC<ComposerProps> = ({
   disabled = false,
   className = '',
   autoFocus = false,
+  variant = 'default',
 }) => {
   const [content, setContent] = useState(initialValue || '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const defaultPlaceholder =
+    variant === 'chat'
+      ? 'Ask anything...'
+      : 'Ask anything about data science, Python or SQL...';
+  const effectivePlaceholder = placeholder || defaultPlaceholder;
 
   // Focus and populate when initialValue changes (e.g. prompt chips)
   useEffect(() => {
@@ -76,16 +84,20 @@ export const Composer: React.FC<ComposerProps> = ({
   const canSend = content.trim().length > 0 && !disabled;
 
   return (
-    <div className={`w-full max-w-2xl mx-auto bg-transparent ${className}`}>
+    <div className={`w-full mx-auto bg-transparent ${className}`}>
       {/* Floating Glass Container */}
-      <div className="glass-composer px-5 pt-4 pb-3 focus-within:outline-none">
+      <div
+        className={`glass-composer ${
+          variant === 'chat' ? 'glass-composer--chat' : ''
+        } px-5 pt-4 pb-3 focus-within:outline-none`}
+      >
         {/* Dynamic Auto-growing Textarea */}
         <textarea
           ref={textareaRef}
           value={content}
           onChange={e => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           disabled={disabled || isStreaming}
           autoFocus={autoFocus}
           rows={1}

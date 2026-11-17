@@ -87,3 +87,61 @@
   .g-rise { animation: none; }
   .glass-chip, .btn-send { transition: none; }
 }
+
+/* ===== G2 overrides: keep at the very END of this file ===== */
+:root {
+  --g-glass-bg: rgba(255, 255, 255, 0.5);
+  --g-composer-bg: rgba(255, 255, 255, 0.78);
+  --g-hover: rgba(20, 20, 19, 0.06);
+  --g-user-bg: rgba(255, 122, 24, 0.12);
+  --g-user-border: rgba(255, 122, 24, 0.3);
+  --g-shape-border: rgba(255, 255, 255, 0.75);
+  --g-shape-fill: rgba(255, 255, 255, 0.3);
+}
+.dark {
+  --g-glass-bg: rgba(25, 30, 45, 0.55);
+  --g-composer-bg: rgba(18, 22, 36, 0.82);
+  --g-hover: rgba(255, 255, 255, 0.08);
+  --g-user-bg: rgba(255, 107, 34, 0.16);
+  --g-user-border: rgba(255, 107, 34, 0.34);
+  --g-shape-border: rgba(255, 107, 34, 0.38);
+  --g-shape-fill: rgba(255, 255, 255, 0.02);
+}
+
+/* Stronger background like the reference (static CSS only) */
+.app-bg { overflow: hidden; background-image:
+  radial-gradient(52rem 38rem at 104% -6%, rgba(255, 122, 24, 0.9), rgba(255, 138, 61, 0.4) 42%, transparent 70%),
+  radial-gradient(34rem 44rem at -4% 100%, rgba(255, 138, 61, 0.7), rgba(255, 138, 61, 0.25) 45%, transparent 72%),
+  radial-gradient(40rem 30rem at 92% 104%, rgba(218, 217, 255, 0.8), transparent 70%),
+  radial-gradient(50rem 36rem at 40% 0%, rgba(241, 240, 244, 0.9), transparent 70%);
+}
+.dark .app-bg { background-image:
+  radial-gradient(50rem 36rem at 104% -8%, rgba(255, 107, 34, 0.6), rgba(255, 107, 34, 0.14) 45%, transparent 70%),
+  radial-gradient(34rem 46rem at -6% 92%, rgba(255, 107, 34, 0.4), rgba(255, 107, 34, 0.1) 45%, transparent 72%),
+  radial-gradient(46rem 34rem at 96% 106%, rgba(140, 138, 255, 0.3), transparent 70%),
+  radial-gradient(60rem 40rem at 30% 0%, rgba(23, 27, 40, 0.9), transparent 70%);
+}
+/* Big soft circles with a thin edge, like the reference */
+.app-bg::before, .app-bg::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid var(--g-shape-border); }
+.app-bg::before { width: 56rem; height: 56rem; right: -24rem; top: -30rem;
+  background: radial-gradient(circle at 35% 70%, var(--g-shape-fill), transparent 70%); }
+.app-bg::after { width: 64rem; height: 64rem; right: -30rem; bottom: -40rem;
+  background: radial-gradient(circle at 30% 30%, var(--g-shape-fill), transparent 70%); }
+
+/* Ghost icon buttons (rail) */
+.rail-btn { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center;
+  background: transparent; border: 0; color: inherit; transition: background 0.18s ease; }
+.rail-btn:hover { background: var(--g-hover); }
+.rail-btn:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+
+/* Composer inside a conversation is more opaque so text behind it is not readable */
+.glass-composer--chat { background: var(--g-composer-bg); }
+
+/* User message bubble */
+.msg-user { background: var(--g-user-bg); border: 1px solid var(--g-user-border);
+  border-radius: 20px 20px 6px 20px; padding: 0.65rem 1rem; }
+
+/* Disabled send: light orange, not muddy brown */
+.btn-send:disabled { opacity: 0.7; filter: none; box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) { .rail-btn { transition: none; } }
