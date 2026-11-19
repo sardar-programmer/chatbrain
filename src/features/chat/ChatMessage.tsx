@@ -1,66 +1,73 @@
+/**
+ * ChatMessage — renders one message in all 6 states.
+ * States: waiting | streaming | retrying | done | stopped | error
+ * Receives persisted MessageItem + optional LiveReplyState override.
+ */
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, Copy, RefreshCw, RotateCcw } from 'lucide-react';
-import { MessageItem } from '../../services/api/types';
+import { Check, Copy, RotateCcw, Square } from 'lucide-react';
+import { type MessageItem } from '../../services/api/types';
+import { type LiveReplyState } from './chatStreamStore';
+import { ChatErrorCard } from './ChatErrorCard';
+import { CodeBlock } from './CodeBlock';
 
-interface ChatMessageProps {
+export interface ChatMessageProps {
   message: MessageItem;
-  onRegenerate?: (messageId: string) => void;
-  onRetry?: (messageId: string) => void;
+  liveState?: LiveReplyState | null;
+  onRegenerate?: () => void;
+  isLast?: boolean;
   isStreaming?: boolean;
 }
 
-const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
-  const [copied, setCopied] = useState(false);
+// ---- Markdown renderer ----
+const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
+  <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed overflow-hidden text-text-primary">
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || '');
+          const isInline = !match && !String(children).includes('\n');
+          if (isInline) {
+            return (
+              <code
+                className="rounded-md bg-accent-soft/40 px-1.5 py-0.5 font-mono text-xs text-accent border border-accent/20"
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          }
+          return (
+            <CodeBlock language={match ? match[1] : ''} code={String(children).replace(/\n$/, '')} />
+          );
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  </div>
+);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="relative my-3 rounded-xl border border-white/10 bg-sidebar/95 shadow-lg overflow-hidden text-left font-mono text-xs">
-      <div className="flex items-center justify-between px-3.5 py-1.5 bg-sidebar-accent/60 border-b border-white/5 text-text-tertiary">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
-          {language || 'code'}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label="Copy code block"
-          className="flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] text-text-tertiary hover:text-text-primary hover:bg-white/10 transition-colors focus:outline-none"
-        >
-          {copied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
-      </div>
-      <div className="p-4 overflow-x-auto text-text-primary leading-relaxed">
-        <pre className="m-0 font-mono">
-          <code>{code}</code>
-        </pre>
-      </div>
-    </div>
-  );
-};
-
+// ---- Main component ----
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
+  liveState,
   onRegenerate,
-  onRetry,
-  isStreaming = false,
+  isLast = false,
 }) => {
   const [copiedResponse, setCopiedResponse] = useState(false);
   const isUser = message.role === 'user';
-  const isFailed = message.status === 'failed';
 
   const handleCopyResponse = () => {
-    navigator.clipboard.writeText(message.content);
+    const text = liveState?.text ?? message.content ?? '';
+    void navigator.clipboard.writeText(text);
     setCopiedResponse(true);
     setTimeout(() => setCopiedResponse(false), 2000);
   };
 
+  // ---- User bubble ----
   if (isUser) {
     return (
       <div className="flex justify-end w-full my-3 animate-in fade-in duration-200">
@@ -71,51 +78,127 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
+  // ---- Determine display state from liveState + persisted message ----
+  const phase = liveState?.phase ?? null;
+  const liveText = liveState?.text ?? '';
+  const displayContent = liveState ? liveText : (message.content ?? '');
+  const isWaiting = liveState && !liveText && phase !== 'retrying';
+  const isRetrying = phase === 'retrying';
+  const isWriting = liveState && (liveText.length > 0 || phase === 'writing');
+  const isError = !liveState && (message.status === 'error' || message.status === 'failed');
+  const isStopped = !liveState && message.status === 'stopped';
+
+  // ---- Waiting state ----
+  if (isWaiting) {
+    return (
+      <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          <span>{liveState?.statusText ?? 'Preparing…'}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Retrying state ----
+  if (isRetrying) {
+    const { attempt, secondsLeft } = liveState!.retry ?? { attempt: 1, secondsLeft: 0 };
+    return (
+      <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
+        <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          <span>
+            All models are busy right now. Retrying in {secondsLeft}s (attempt {attempt})
+          </span>
+        </div>
+        {displayContent ? <MarkdownBody content={displayContent} /> : null}
+      </div>
+    );
+  }
+
+  // ---- Streaming / writing state ----
+  if (isWriting) {
+    return (
+      <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
+        {displayContent ? (
+          <>
+            <MarkdownBody content={displayContent} />
+            <span
+              aria-hidden="true"
+              className="inline-block w-0.5 h-4 bg-accent ml-0.5 motion-safe:animate-[blink_1s_step-end_infinite]"
+            />
+          </>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            <span>{liveState?.statusText ?? 'Writing…'}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ---- Error state (persisted or live error event) ----
+  if (isError) {
+    return (
+      <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
+        {displayContent ? <MarkdownBody content={displayContent} /> : null}
+        <ChatErrorCard
+          errorCategory={message.error_category}
+          rawMessage={undefined}
+          onRetry={onRegenerate}
+          isStreaming={false}
+        />
+      </div>
+    );
+  }
+
+  // ---- Stopped state (persisted) ----
+  if (isStopped) {
+    return (
+      <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
+        {displayContent ? <MarkdownBody content={displayContent} /> : null}
+        <div className="flex items-center gap-1.5 pt-1.5 text-xs text-text-tertiary">
+          <Square className="h-3 w-3 shrink-0" />
+          <span>Stopped</span>
+        </div>
+        <div className="flex items-center gap-1.5 pt-1 text-text-tertiary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          {displayContent && (
+            <button
+              type="button"
+              onClick={handleCopyResponse}
+              aria-label="Copy response"
+              title="Copy response"
+              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
+            >
+              {copiedResponse ? (
+                <Check className="h-3.5 w-3.5 text-status-success" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              aria-label="Regenerate response"
+              title="Regenerate response"
+              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Done state (default for completed messages) ----
   return (
     <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200 focus-within:outline-none">
-      {/* Streaming Status Line (no box, muted text with pulsing accent dot) */}
-      {isStreaming && (
-        <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono mb-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-          <span>Writing the answer...</span>
-        </div>
-      )}
-
-      {/* Assistant Message: Plain text in column, no box, no border, no background */}
-      {message.content ? (
-        <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed overflow-hidden text-text-primary">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const isInline = !match && !String(children).includes('\n');
-                if (isInline) {
-                  return (
-                    <code
-                      className="rounded-md bg-accent-soft/40 px-1.5 py-0.5 font-mono text-xs text-accent border border-accent/20"
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  );
-                }
-                return (
-                  <CodeBlock
-                    language={match ? match[1] : ''}
-                    code={String(children).replace(/\n$/, '')}
-                  />
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </div>
-      ) : null}
-
-      {/* Action Row: Small ghost icon buttons visible on hover/focus on desktop, always visible on mobile */}
-      {!isStreaming && message.content && (
+      {displayContent ? <MarkdownBody content={displayContent} /> : null}
+      {displayContent && (
         <div className="flex items-center gap-1.5 pt-2 text-text-tertiary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
           <button
             type="button"
@@ -130,28 +213,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               <Copy className="h-3.5 w-3.5" />
             )}
           </button>
-
-          {onRegenerate && (
+          {isLast && onRegenerate && (
             <button
               type="button"
-              onClick={() => onRegenerate(message.id)}
+              onClick={onRegenerate}
               aria-label="Regenerate response"
               title="Regenerate response"
               className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          )}
-
-          {isFailed && onRetry && (
-            <button
-              type="button"
-              onClick={() => onRetry(message.id)}
-              aria-label="Retry"
-              title="Retry"
-              className="rail-btn !w-7 !h-7 !rounded-lg text-status-error hover:text-status-error focus:outline-none"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

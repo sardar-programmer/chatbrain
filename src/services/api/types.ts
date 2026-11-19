@@ -61,7 +61,8 @@ export interface MessageItem {
   conversation_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  status?: 'pending' | 'streaming' | 'done' | 'failed' | 'stopped';
+  status?: 'sending' | 'streaming' | 'done' | 'error' | 'failed' | 'stopped';
+  error_category?: string | null;
   model_used?: string | null;
   created_at: string;
   updated_at?: string;
