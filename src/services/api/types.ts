@@ -56,6 +56,12 @@ export interface ConversationListResponse {
   next_cursor: string | null;
 }
 
+export interface ListConversationsOptions {
+  search?: string;
+  limit?: number;
+  cursor?: string;
+}
+
 export interface MessageItem {
   id: string;
   conversation_id: string;

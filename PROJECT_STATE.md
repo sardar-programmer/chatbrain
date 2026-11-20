@@ -30,7 +30,8 @@ Project location: D:\Projects\chat-brain
   - M1.4a (chat reply reliability: robust SSE parser handling chunks, CRLF, joined data lines and ping comments; pure error message mapper sanitizing JSON/tracebacks/API keys/model names; module-level stream store keyed by conversation ID with live countdown timers and optimistic user messages; TanStack Query as single source of truth without unmount aborts; ChatErrorCard with retry & settings actions; ChatMessage supporting all 6 states [waiting, streaming, retrying, done, stopped, error]; fixes P1 empty screen, P2 retry sending new message, P3 stopped indicator, and P4 error visibility; all files strictly under 250 lines)
   - M1.4b (streaming feel + remaining chat fixes: fixed regression where all-at-once rendering occurred by using immutable store updates for useSyncExternalStore change detection and rendering live assistant bubble during stream; delta batching via requestAnimationFrame; terminal swap waiting for refetch before deleting live state; errors before reply [auth/missing key, empty pool, 409, network] rendered under user message; persisted unanswered state with soft 'No reply yet.' panel and Retry sending {regenerate:true}; stick-to-bottom scroll tracking with 80px threshold and Jump to latest pill; dynamic composer bottom padding via ResizeObserver; status line directly under user bubble with 10px gap hidden on first delta; soft light orange disabled send button with visible icon; memoized ChatMessage and CodeBlock with useThrottledText for Markdown performance; all files strictly under 250 lines)
   - M1.4c (chat polish: jump to latest pill positioned absolute bottom-full mb-3 inside composer wrapper; composer width matched exactly to message column max-w-3xl px-4; composer bg opacity increased in glass.css; backend regenerate_from deletes specified assistant message and later turns in one transaction then regenerates reply; frontend Regenerate on any answer with ConfirmDialog showing N messages to remove; smooth word-by-word reveal via useSmoothText and nextRevealIndex with ~18 to 60 wps adaptive draining and instant reveal on reduced-motion/server load/stopped/hidden; all files strictly under 250 lines)
-- Next: M1.4d (sidebar chat actions [search, rename, pin, delete with Undo] and Edit & resend)
+  - M1.4d (sidebar chat actions: search input with 200ms debounce and Escape/X clear; Pinned heading + date groups Today/Yesterday/Previous 7 days/Older by updated_at via pure groupConversations helper; Show more pagination 50/page cursor; SidebarChatItem with custom controlled menu Rename Pin/Unpin Delete no Radix portal plain click-triggered; inline rename Enter saves valid title Escape/blur cancels empty rejected max 200 chars; delete aborts stream soft-deletes navigates to / if active shows 6s Undo toast + restore; Edit & resend on user messages inline textarea Ctrl+Enter saves Escape cancels confirm dialog when later msgs exist PATCH + empty-body reply never adds user message; backend delete-while-streaming consistency test; 16 frontend test files 82 tests 114 backend tests; all files strictly under 250 lines)
+- Next: M1.5 (DS tutor prompt and study chips)
 
 ## Roadmap
 - C0a: Frontend cleanup (DONE)
@@ -41,7 +42,8 @@ Project location: D:\Projects\chat-brain
 - M1.4a: Chat reply reliability (DONE)
 - M1.4b: Streaming feel + remaining chat fixes (DONE)
 - M1.4c: Chat polish (DONE)
-- M1.4d: Sidebar chat actions (search, rename, pin, delete with Undo) and Edit & resend
+- M1.4d: Sidebar chat actions (DONE)
+- M1.5: DS tutor prompt and study chips
 - M1.5: DS tutor prompt and study chips
 - M2a: Datasets backend
 - M2b: Datasets screen with "Ask AI about this dataset"

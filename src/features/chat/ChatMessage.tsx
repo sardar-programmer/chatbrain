@@ -13,11 +13,13 @@ import { ChatErrorCard } from './ChatErrorCard';
 import { CodeBlock } from './CodeBlock';
 import { useThrottledText } from './useThrottledText';
 import { useSmoothText } from './smoothReveal';
+import { UserMessageBubble } from './UserMessageBubble';
 
 export interface ChatMessageProps {
   message: MessageItem;
   liveState?: LiveReplyState | null;
   onRegenerate?: () => void;
+  onEditUserMessage?: (messageId: string, newContent: string) => void;
   isLast?: boolean;
   isStreaming?: boolean;
 }
@@ -69,6 +71,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
   message,
   liveState,
   onRegenerate,
+  onEditUserMessage,
   isStreaming = false,
 }) => {
   const [copiedResponse, setCopiedResponse] = useState(false);
@@ -83,11 +86,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
 
   if (isUser) {
     return (
-      <div className="flex justify-end w-full my-3 animate-in fade-in duration-200">
-        <div className="msg-user max-w-[80%] text-sm text-text-primary shadow-sm">
-          <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
-        </div>
-      </div>
+      <UserMessageBubble
+        message={message}
+        isStreaming={isStreaming}
+        onRequestEdit={onEditUserMessage}
+      />
     );
   }
 

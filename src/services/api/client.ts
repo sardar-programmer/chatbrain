@@ -6,6 +6,8 @@ import {
   ApiError,
   type ConversationDetailResponse,
   type ConversationListResponse,
+  type ListConversationsOptions,
+  type MessageItem,
   type GeminiCredentialsStatus,
   type GeminiTestResponse,
   type HealthResponse,
@@ -174,9 +176,18 @@ export async function deleteGeminiKey(): Promise<GeminiCredentialsStatus> {
   return request<GeminiCredentialsStatus>('/credentials/gemini', { method: 'DELETE' });
 }
 
-export async function listConversations(search?: string): Promise<ConversationListResponse> {
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  return request<ConversationListResponse>(`/conversations${query}`, { method: 'GET' });
+export async function listConversations(
+  optsOrSearch?: string | ListConversationsOptions,
+): Promise<ConversationListResponse> {
+  const opts: ListConversationsOptions = typeof optsOrSearch === 'string'
+    ? { search: optsOrSearch }
+    : (optsOrSearch ?? {});
+  const params = new URLSearchParams();
+  if (opts.search) params.set('search', opts.search);
+  if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+  if (opts.cursor) params.set('cursor', opts.cursor);
+  const qs = params.toString();
+  return request<ConversationListResponse>(`/conversations${qs ? `?${qs}` : ''}`, { method: 'GET' });
 }
 
 export async function createConversation(title?: string): Promise<ConversationDetailResponse> {
@@ -190,7 +201,33 @@ export async function getConversation(id: string): Promise<ConversationDetailRes
   return request<ConversationDetailResponse>(`/conversations/${id}`, { method: 'GET' });
 }
 
+export async function updateConversation(
+  id: string,
+  payload: { title?: string; pinned?: boolean },
+): Promise<ConversationDetailResponse> {
+  return request<ConversationDetailResponse>(`/conversations/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
 export async function deleteConversation(id: string): Promise<{ deleted: boolean }> {
   return request<{ deleted: boolean }>(`/conversations/${id}`, { method: 'DELETE' });
+}
+
+export async function restoreConversation(id: string): Promise<ConversationDetailResponse> {
+  return request<ConversationDetailResponse>(`/conversations/${id}/restore`, {
+    method: 'POST',
+  });
+}
+
+export async function updateMessage(
+  id: string,
+  payload: { content: string },
+): Promise<{ message: MessageItem; removed_count: number }> {
+  return request<{ message: MessageItem; removed_count: number }>(`/messages/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
 }
 

@@ -15,15 +15,20 @@ import { ChatMessage } from './ChatMessage';
 import { ChatErrorCard } from './ChatErrorCard';
 import { UnansweredCard } from './UnansweredCard';
 import { useChatScroll } from './useChatScroll';
+import { useDisplayMessages } from './useDisplayMessages';
 import {
   useLiveReply,
   useConversationError,
   sendReply,
   regenerateReply,
+  editAndResendReply,
   stopReply,
   isConversationStreaming,
 } from './chatStreamStore';
-import { type MessageItem } from '../../services/api/types';
+
+type ConfirmAction =
+  | { type: 'regenerate'; id: string; laterCount: number }
+  | { type: 'edit'; id: string; newContent: string; laterCount: number };
 
 export const ChatView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +39,7 @@ export const ChatView: React.FC = () => {
   const composerRef = useRef<HTMLDivElement>(null);
 
   const [composerHeight, setComposerHeight] = useState(110);
-  const [confirmTarget, setConfirmTarget] = useState<{ id: string; laterCount: number } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   const { data: conversation, isLoading } = useQuery({
     queryKey: ['conversation', id],
@@ -46,6 +51,7 @@ export const ChatView: React.FC = () => {
   const convError = useConversationError(id);
   const streaming = id ? isConversationStreaming(id) : false;
   const { showJumpToLatest, setContainerRef, jumpToLatest, scheduleStickToBottom } = useChatScroll();
+  const displayMessages = useDisplayMessages(conversation, liveState, id);
 
   useEffect(() => {
     const el = composerRef.current;
@@ -59,35 +65,6 @@ export const ChatView: React.FC = () => {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-
-  const persistedMessages: MessageItem[] = conversation?.messages ?? [];
-  const baseMessages = liveState?.isRegenerating
-    ? (() => {
-        if (liveState.regenerateFromId) {
-          const targetIdx = persistedMessages.findIndex(m => m.id === liveState.regenerateFromId);
-          return targetIdx === -1 ? persistedMessages : persistedMessages.slice(0, targetIdx);
-        }
-        const lastIdx = [...persistedMessages].reverse().findIndex(m => m.role === 'assistant');
-        return lastIdx === -1 ? persistedMessages : persistedMessages.slice(0, persistedMessages.length - 1 - lastIdx);
-      })()
-    : persistedMessages;
-
-  const showOptUser = liveState?.optimisticUserMessage &&
-    !baseMessages.some(m => m.id === liveState.optimisticUserMessage?.id || (liveState.userMessageId && m.id === liveState.userMessageId));
-
-  const userMessages: MessageItem[] = showOptUser ? [...baseMessages, liveState!.optimisticUserMessage!] : baseMessages;
-  const hasPersistedAssistant = !!(liveState?.assistantMessageId && userMessages.some(m => m.id === liveState.assistantMessageId));
-
-  const displayMessages: MessageItem[] = (liveState && !hasPersistedAssistant)
-    ? [...userMessages, {
-        id: liveState.assistantMessageId || 'live-assistant',
-        conversation_id: id ?? '',
-        role: 'assistant',
-        content: liveState.text,
-        status: 'streaming',
-        created_at: new Date().toISOString(),
-      }]
-    : userMessages;
 
   useEffect(() => {
     scheduleStickToBottom();
@@ -115,17 +92,33 @@ export const ChatView: React.FC = () => {
       jumpToLatest();
       void regenerateReply(id, queryClient, showToast);
     } else {
-      setConfirmTarget({ id: msgId, laterCount });
+      setConfirmAction({ type: 'regenerate', id: msgId, laterCount });
     }
   }, [id, streaming, queryClient, showToast, jumpToLatest]);
 
-  const handleConfirmRegenerate = useCallback(() => {
-    if (!id || !confirmTarget) return;
+  const handleEditClick = useCallback((msgId: string, newContent: string) => {
+    if (!id || streaming) return;
+    const msgIdx = displayMessages.findIndex(m => m.id === msgId);
+    const laterCount = msgIdx === -1 ? 0 : displayMessages.length - 1 - msgIdx;
+    if (laterCount > 0) {
+      setConfirmAction({ type: 'edit', id: msgId, newContent, laterCount });
+    } else {
+      jumpToLatest();
+      void editAndResendReply(id, msgId, newContent, queryClient, showToast);
+    }
+  }, [id, streaming, displayMessages, queryClient, showToast, jumpToLatest]);
+
+  const handleConfirmAction = useCallback(() => {
+    if (!id || !confirmAction) return;
     jumpToLatest();
-    const fromId = confirmTarget.id;
-    setConfirmTarget(null);
-    void regenerateReply(id, queryClient, showToast, fromId);
-  }, [id, confirmTarget, queryClient, showToast, jumpToLatest]);
+    const action = confirmAction;
+    setConfirmAction(null);
+    if (action.type === 'regenerate') {
+      void regenerateReply(id, queryClient, showToast, action.id);
+    } else {
+      void editAndResendReply(id, action.id, action.newContent, queryClient, showToast);
+    }
+  }, [id, confirmAction, queryClient, showToast, jumpToLatest]);
 
   const lastAssistantIdx = (() => {
     for (let i = displayMessages.length - 1; i >= 0; i--) {
@@ -156,7 +149,7 @@ export const ChatView: React.FC = () => {
           const isLive = liveState && (
             m.id === liveState.assistantMessageId ||
             m.id === 'live-assistant' ||
-            (!hasPersistedAssistant && idx === displayMessages.length - 1 && m.role === 'assistant')
+            (m.role === 'assistant' && idx === displayMessages.length - 1)
           );
           const isLastAsst = m.role === 'assistant' && idx === lastAssistantIdx;
           const laterCount = displayMessages.length - 1 - idx;
@@ -167,6 +160,7 @@ export const ChatView: React.FC = () => {
               message={m}
               liveState={isLive ? liveState : null}
               onRegenerate={m.role === 'assistant' ? () => handleRegenerateClick(m.id, isLastAsst, laterCount) : undefined}
+              onEditUserMessage={m.role === 'user' ? (msgId, text) => handleEditClick(msgId, text) : undefined}
               isLast={isLastAsst}
               isStreaming={streaming}
             />
@@ -216,13 +210,17 @@ export const ChatView: React.FC = () => {
       </div>
 
       <ConfirmDialog
-        open={confirmTarget !== null}
-        onOpenChange={(open) => !open && setConfirmTarget(null)}
-        title="Regenerate this answer?"
-        description={`Regenerate this answer? The ${confirmTarget?.laterCount} message${confirmTarget?.laterCount === 1 ? '' : 's'} after it will be removed.`}
-        confirmText="Regenerate"
+        open={confirmAction !== null}
+        onOpenChange={open => !open && setConfirmAction(null)}
+        title={confirmAction?.type === 'edit' ? 'Edit message?' : 'Regenerate this answer?'}
+        description={
+          confirmAction?.type === 'edit'
+            ? `Editing this message removes the ${confirmAction.laterCount} message${confirmAction.laterCount === 1 ? '' : 's'} after it.`
+            : `Regenerate this answer? The ${confirmAction?.laterCount} message${confirmAction?.laterCount === 1 ? '' : 's'} after it will be removed.`
+        }
+        confirmText={confirmAction?.type === 'edit' ? 'Save & resend' : 'Regenerate'}
         isDestructive={true}
-        onConfirm={handleConfirmRegenerate}
+        onConfirm={handleConfirmAction}
       />
     </div>
   );

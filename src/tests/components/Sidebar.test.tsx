@@ -5,17 +5,20 @@ import { MemoryRouter } from 'react-router-dom';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Sidebar } from '../../components/layout/Sidebar';
+import { ToastProvider } from '../../components/shared/Toast';
 import { useUIStore } from '../../state/useUIStore';
 import { queryClient } from '../../state/queryClient';
 
 const renderSidebar = (props = {}, initialRoute = '/') => {
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Tooltip.Provider delayDuration={0}>
-          <Sidebar {...props} />
-        </Tooltip.Provider>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <Tooltip.Provider delayDuration={0}>
+            <Sidebar {...props} />
+          </Tooltip.Provider>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };

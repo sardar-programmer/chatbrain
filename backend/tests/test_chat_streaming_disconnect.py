@@ -173,3 +173,37 @@ async def test_generator_exit_via_aclose_stops_message_and_releases_lock(
     # Assistant message is marked stopped
     conv = chat_store.get_conversation(conn, conv_id)
     assert conv["messages"][-1]["status"] == "stopped"
+
+
+@pytest.mark.anyio
+async def test_delete_conversation_while_streaming_leaves_backend_consistent(
+    fake_provider: FakeProvider,
+) -> None:
+    conn = create_connection()
+    conv_id = setup_chat(conn, "Delete While Streaming")
+
+    owner = acquire_stream_lock(conv_id)
+    scope = {"type": "http", "method": "POST", "path": "/"}
+
+    async def dummy_receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    req = Request(scope, receive=dummy_receive)
+    user_msg = chat_store.add_user_message(conn, conv_id, "Test prompt")
+    gen = stream_reply_events(conv_id, user_msg["id"], req, owner=owner)
+    owner.set_generator(gen)
+
+    async for event in gen:
+        if "writing" in event or "delta" in event:
+            break
+
+    await gen.aclose()
+    del_res = chat_store.delete_conversation(conn, conv_id)
+    assert del_res["id"] == conv_id
+
+    assert not owner.is_running()
+    assert conv_id not in _active_locks
+    cur = conn.cursor()
+    cur.execute("SELECT deleted_at FROM conversations WHERE id = ?;", (conv_id,))
+    assert cur.fetchone()["deleted_at"] is not None
+

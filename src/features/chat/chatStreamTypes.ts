@@ -12,6 +12,8 @@ export interface LiveReplyState {
   abortController: AbortController | null;
   isRegenerating: boolean;
   regenerateFromId: string | null;
+  editedMessageId?: string | null;
+  editedContent?: string | null;
 }
 
 export interface ConversationError {
