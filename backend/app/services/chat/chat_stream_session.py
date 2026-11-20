@@ -1,11 +1,12 @@
 """Session and lock management for chat reply streaming (M1.3b)."""
 
 import asyncio
+from datetime import datetime, timezone
 import json
 from typing import Any
 import uuid
 import weakref
-from app.errors import ChatBrainException, ValidationException
+from app.errors import ChatBrainException, NotFoundException, ValidationException
 from app.services.chat import chat_store
 
 
@@ -128,6 +129,7 @@ def prepare_reply_session(
     conv_id: str,
     content: str | None,
     regenerate: bool,
+    regenerate_from: str | None = None,
 ) -> str:
     """Handle message addition or regeneration logic; returns user_message_id."""
     clean_content = content.strip() if content else None
@@ -135,6 +137,31 @@ def prepare_reply_session(
     if clean_content:
         user_msg = chat_store.add_user_message(conn, conv_id, clean_content)
         return str(user_msg["id"])
+
+    if regenerate_from:
+        cur = conn.cursor()
+        cur.execute("SELECT id, conversation_id, seq, role FROM messages WHERE id = ?;", (regenerate_from,))
+        target_msg = cur.fetchone()
+        if not target_msg:
+            raise NotFoundException(f"Message {regenerate_from} not found")
+        if target_msg["conversation_id"] != conv_id:
+            raise ValidationException("Message belongs to another conversation", status_code=422)
+        if target_msg["role"] != "assistant":
+            raise ValidationException("Can only regenerate from an assistant message", status_code=422)
+
+        cur.execute(
+            "SELECT id, role, seq FROM messages WHERE conversation_id = ? AND seq < ? ORDER BY seq DESC LIMIT 1;",
+            (conv_id, target_msg["seq"]),
+        )
+        prev_msg = cur.fetchone()
+        if not prev_msg or prev_msg["role"] != "user":
+            raise ValidationException("No user message before this assistant message to regenerate", status_code=422)
+
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute("DELETE FROM messages WHERE conversation_id = ? AND seq >= ?;", (conv_id, target_msg["seq"]))
+        conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?;", (now, conv_id))
+        conn.commit()
+        return str(prev_msg["id"])
 
     conv = chat_store.get_conversation(conn, conv_id)
     if not conv or not conv["messages"]:

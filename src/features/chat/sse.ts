@@ -135,7 +135,7 @@ export interface FetchReplyOptions {
 
 export async function fetchReplyStream(
   conversationId: string,
-  payload: { content?: string; regenerate?: boolean },
+  payload: { content?: string; regenerate?: boolean; regenerate_from?: string },
   options: FetchReplyOptions,
 ): Promise<{ terminal: boolean }> {
   const execute = async (tokenOverride?: string): Promise<Response> => {

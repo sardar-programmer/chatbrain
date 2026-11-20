@@ -91,7 +91,7 @@
 /* ===== G2 overrides: keep at the very END of this file ===== */
 :root {
   --g-glass-bg: rgba(255, 255, 255, 0.5);
-  --g-composer-bg: rgba(255, 255, 255, 0.78);
+  --g-composer-bg: rgba(255, 255, 255, 0.92);
   --g-hover: rgba(20, 20, 19, 0.06);
   --g-user-bg: rgba(255, 122, 24, 0.12);
   --g-user-border: rgba(255, 122, 24, 0.3);
@@ -100,7 +100,7 @@
 }
 .dark {
   --g-glass-bg: rgba(25, 30, 45, 0.55);
-  --g-composer-bg: rgba(18, 22, 36, 0.82);
+  --g-composer-bg: rgba(18, 22, 36, 0.94);
   --g-hover: rgba(255, 255, 255, 0.08);
   --g-user-bg: rgba(255, 107, 34, 0.16);
   --g-user-border: rgba(255, 107, 34, 0.34);

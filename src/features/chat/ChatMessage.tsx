@@ -12,6 +12,7 @@ import { type LiveReplyState } from './chatStreamTypes';
 import { ChatErrorCard } from './ChatErrorCard';
 import { CodeBlock } from './CodeBlock';
 import { useThrottledText } from './useThrottledText';
+import { useSmoothText } from './smoothReveal';
 
 export interface ChatMessageProps {
   message: MessageItem;
@@ -21,7 +22,6 @@ export interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
-// ---- Markdown renderer ----
 const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
   <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed overflow-hidden text-text-primary">
     <ReactMarkdown
@@ -51,9 +51,9 @@ const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
   </div>
 );
 
-// ---- Streaming body with throttled markdown updates ----
-const StreamingBody: React.FC<{ content: string }> = ({ content }) => {
-  const throttled = useThrottledText(content, true, 80);
+const StreamingBody: React.FC<{ content: string; isStreaming: boolean }> = ({ content, isStreaming }) => {
+  const smooth = useSmoothText(content, isStreaming);
+  const throttled = useThrottledText(smooth, true, 80);
   return (
     <>
       <MarkdownBody content={throttled} />
@@ -69,7 +69,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
   message,
   liveState,
   onRegenerate,
-  isLast = false,
+  isStreaming = false,
 }) => {
   const [copiedResponse, setCopiedResponse] = useState(false);
   const isUser = message.role === 'user';
@@ -100,7 +100,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
   const isError = !liveState && (message.status === 'error' || message.status === 'failed');
   const isStopped = !liveState && message.status === 'stopped';
 
-  // Waiting state (status line directly under user bubble with 8-12px gap)
   if (isWaiting) {
     return (
       <div className="flex flex-col w-full mt-2.5 mb-2 animate-in fade-in duration-200">
@@ -112,7 +111,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
     );
   }
 
-  // Retrying state
   if (isRetrying) {
     const { attempt, secondsLeft } = liveState!.retry ?? { attempt: 1, secondsLeft: 0 };
     return (
@@ -128,12 +126,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
     );
   }
 
-  // Streaming / writing state
   if (isWriting) {
     return (
       <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
         {displayContent ? (
-          <StreamingBody content={displayContent} />
+          <StreamingBody content={displayContent} isStreaming={phase === 'writing'} />
         ) : (
           <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -144,7 +141,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
     );
   }
 
-  // Error state
   if (isError) {
     return (
       <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
@@ -153,13 +149,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
           errorCategory={message.error_category}
           rawMessage={undefined}
           onRetry={onRegenerate}
-          isStreaming={false}
+          isStreaming={isStreaming}
         />
       </div>
     );
   }
 
-  // Stopped state
   if (isStopped) {
     return (
       <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
@@ -184,9 +179,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
             <button
               type="button"
               onClick={onRegenerate}
+              disabled={isStreaming}
               aria-label="Regenerate response"
               title="Regenerate response"
-              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
+              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
@@ -211,13 +207,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
           >
             {copiedResponse ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
-          {isLast && onRegenerate && (
+          {onRegenerate && (
             <button
               type="button"
               onClick={onRegenerate}
+              disabled={isStreaming}
               aria-label="Regenerate response"
               title="Regenerate response"
-              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
+              className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>

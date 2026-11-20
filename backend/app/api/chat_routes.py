@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from app.db.database import get_db
-from app.errors import NotFoundException
+from app.errors import NotFoundException, ValidationException
 from app.schemas.chat import (
     ConversationClearResponse,
     ConversationCreatePayload,
@@ -163,6 +163,18 @@ async def reply_conversation(
     valid_id = validate_uuid(conversation_id)
     content = payload.content if payload else None
     regenerate = payload.regenerate if payload else False
+    regenerate_from = payload.regenerate_from if payload else None
+
+    fields_set = sum([
+        bool(content and content.strip()),
+        bool(regenerate),
+        bool(regenerate_from and regenerate_from.strip()),
+    ])
+    if fields_set > 1:
+        raise ValidationException(
+            "content, regenerate, and regenerate_from are mutually exclusive",
+            status_code=422,
+        )
 
     conv = chat_store.get_conversation(conn, valid_id)
     if not conv:
@@ -170,7 +182,7 @@ async def reply_conversation(
 
     owner = acquire_stream_lock(valid_id)
     try:
-        user_msg_id = prepare_reply_session(conn, valid_id, content, regenerate)
+        user_msg_id = prepare_reply_session(conn, valid_id, content, regenerate, regenerate_from)
     except Exception:
         release_stream_lock(valid_id, owner)
         raise

@@ -128,6 +128,7 @@ The reply endpoint streams assistant responses over HTTP using Server-Sent Event
 #### Concurrency & Validation
 - **Single-Stream Lock**: Only one active stream per conversation at a time (`HTTP 409 Conflict` on concurrent requests).
 - **Validation**: Requests with empty content on an empty conversation return `HTTP 422 Unprocessable Entity`.
+- **Regeneration**: Supports `regenerate: true` (regenerates last answer) and `regenerate_from: <id>` (deletes specified assistant message and all subsequent messages, re-answering the prior user message). `content`, `regenerate`, and `regenerate_from` are mutually exclusive.
 - **Heartbeats**: Every 15s of idle time without a chunk, an SSE comment (`: ping\n\n`) is sent.
 - **Persistence**: Assistant text is persisted to SQLite every ~300ms during streaming and finalized upon completion.
 

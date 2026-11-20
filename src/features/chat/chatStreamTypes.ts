@@ -11,6 +11,7 @@ export interface LiveReplyState {
   retry: { attempt: number; secondsLeft: number } | null;
   abortController: AbortController | null;
   isRegenerating: boolean;
+  regenerateFromId: string | null;
 }
 
 export interface ConversationError {

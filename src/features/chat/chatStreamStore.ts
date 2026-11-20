@@ -104,6 +104,7 @@ export async function sendReply(
     retry: null,
     abortController: controller,
     isRegenerating: false,
+    regenerateFromId: null,
   });
   flushNotify();
   await executeStream(conversationId, { content: trimmed }, controller, queryClient, showToast);
@@ -113,6 +114,7 @@ export async function regenerateReply(
   conversationId: string,
   queryClient: QueryClient,
   showToast?: (toast: { message: string; type?: 'info' | 'error' | 'success' }) => void,
+  fromMessageId?: string,
 ): Promise<void> {
   if (activeStreams.has(conversationId)) {
     showToast?.({ message: 'A reply is already streaming for this conversation.', type: 'info' });
@@ -131,9 +133,11 @@ export async function regenerateReply(
     retry: null,
     abortController: controller,
     isRegenerating: true,
+    regenerateFromId: fromMessageId ?? null,
   });
   flushNotify();
-  await executeStream(conversationId, { regenerate: true }, controller, queryClient, showToast);
+  const payload = fromMessageId ? { regenerate_from: fromMessageId } : { regenerate: true };
+  await executeStream(conversationId, payload, controller, queryClient, showToast);
 }
 
 export function stopReply(conversationId: string): void {
@@ -142,7 +146,7 @@ export function stopReply(conversationId: string): void {
 
 async function executeStream(
   conversationId: string,
-  payload: { content?: string; regenerate?: boolean },
+  payload: { content?: string; regenerate?: boolean; regenerate_from?: string },
   controller: AbortController,
   queryClient: QueryClient,
   showToast?: (toast: { message: string; type?: 'info' | 'error' | 'success' }) => void,

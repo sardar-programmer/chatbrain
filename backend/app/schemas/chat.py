@@ -28,6 +28,7 @@ class ConversationReplyPayload(BaseModel):
 
     content: str | None = Field(default=None, max_length=100000)
     regenerate: bool = False
+    regenerate_from: str | None = None
 
 
 class MessageCreatePayload(BaseModel):
