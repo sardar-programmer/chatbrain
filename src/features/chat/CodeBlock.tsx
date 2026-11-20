@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Check, Copy } from 'lucide-react';
 
 interface CodeBlockProps {
@@ -6,7 +6,7 @@ interface CodeBlockProps {
   code: string;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code }) => {
+export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, code }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -38,4 +38,6 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, code }) => {
       </div>
     </div>
   );
-};
+});
+
+CodeBlock.displayName = 'CodeBlock';

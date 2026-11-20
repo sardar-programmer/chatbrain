@@ -28,7 +28,8 @@ Project location: D:\Projects\chat-brain
   - G1 (glass UI foundation: static CSS .app-bg gradient background, floating 72px glass-rail sidebar defaulting to collapsed with logo toggle and pinned settings, Newsreader serif welcome screen with accent .glass-icon-tile, .glass-composer with disabled + and mic tools, accent-colored .glass-chips, .glass-card settings sections, light & dark theme support, zero raw hex in components, all files strictly under 250 lines)
   - G2 (visual fixes: outlined logo mark, crossfade to PanelLeftOpen on collapsed logo hover/focus, expanded header row with serif wordmark and PanelLeftClose rail-btn, hairline divider, ghost .rail-btn buttons; 4 suggestion chips in single row at >=1024px with 900px max width; chat screen non-sticky 14px title, removal of top bar, avatars, and model names; plain-text assistant messages with ghost action buttons, .msg-user bubble; max-w-3xl shared column and composer width; glass-composer--chat variant; small muted status text with pulsing dot; all files strictly under 250 lines)
   - M1.4a (chat reply reliability: robust SSE parser handling chunks, CRLF, joined data lines and ping comments; pure error message mapper sanitizing JSON/tracebacks/API keys/model names; module-level stream store keyed by conversation ID with live countdown timers and optimistic user messages; TanStack Query as single source of truth without unmount aborts; ChatErrorCard with retry & settings actions; ChatMessage supporting all 6 states [waiting, streaming, retrying, done, stopped, error]; fixes P1 empty screen, P2 retry sending new message, P3 stopped indicator, and P4 error visibility; all files strictly under 250 lines)
-- Next: M1.4b (chat extras & sidebar list: conversation history in sidebar, auto-title, search, pin, rename, delete)
+  - M1.4b (streaming feel + remaining chat fixes: fixed regression where all-at-once rendering occurred by using immutable store updates for useSyncExternalStore change detection and rendering live assistant bubble during stream; delta batching via requestAnimationFrame; terminal swap waiting for refetch before deleting live state; errors before reply [auth/missing key, empty pool, 409, network] rendered under user message; persisted unanswered state with soft 'No reply yet.' panel and Retry sending {regenerate:true}; stick-to-bottom scroll tracking with 80px threshold and Jump to latest pill; dynamic composer bottom padding via ResizeObserver; status line directly under user bubble with 10px gap hidden on first delta; soft light orange disabled send button with visible icon; memoized ChatMessage and CodeBlock with useThrottledText for Markdown performance; all files strictly under 250 lines)
+- Next: M1.4c (sidebar chat list: conversation history in sidebar, auto-title, search, pin, rename, delete)
 
 ## Roadmap
 - C0a: Frontend cleanup (DONE)
@@ -37,7 +38,8 @@ Project location: D:\Projects\chat-brain
 - G1: Glass UI foundation (DONE)
 - G2: Visual fixes (DONE)
 - M1.4a: Chat reply reliability (DONE)
-- M1.4b: Chat extras (conversations sidebar list, auto-title, search, pin, rename, delete)
+- M1.4b: Streaming feel + remaining chat fixes (DONE)
+- M1.4c: Sidebar chat list (conversations sidebar list, auto-title, search, pin, rename, delete)
 - M1.5: DS tutor prompt and study chips
 - M2a: Datasets backend
 - M2b: Datasets screen with "Ask AI about this dataset"

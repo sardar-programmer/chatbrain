@@ -151,7 +151,11 @@ export const Composer: React.FC<ComposerProps> = ({
                   onClick={handleSend}
                   disabled={!canSend}
                   aria-label="Send message"
-                  className="btn-send focus:outline-none"
+                  className={`btn-send focus:outline-none transition-all ${
+                    !canSend
+                      ? '!opacity-80 !bg-accent/40 !text-white/90 !shadow-none cursor-not-allowed'
+                      : 'cursor-pointer'
+                  }`}
                 >
                   <ArrowUp className="h-4 w-4 stroke-[2.5]" />
                 </button>

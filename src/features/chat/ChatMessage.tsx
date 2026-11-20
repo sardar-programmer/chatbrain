@@ -1,16 +1,17 @@
 /**
  * ChatMessage — renders one message in all 6 states.
  * States: waiting | streaming | retrying | done | stopped | error
- * Receives persisted MessageItem + optional LiveReplyState override.
+ * Memoized so finished messages do not re-render during streaming.
  */
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Check, Copy, RotateCcw, Square } from 'lucide-react';
 import { type MessageItem } from '../../services/api/types';
-import { type LiveReplyState } from './chatStreamStore';
+import { type LiveReplyState } from './chatStreamTypes';
 import { ChatErrorCard } from './ChatErrorCard';
 import { CodeBlock } from './CodeBlock';
+import { useThrottledText } from './useThrottledText';
 
 export interface ChatMessageProps {
   message: MessageItem;
@@ -50,8 +51,21 @@ const MarkdownBody: React.FC<{ content: string }> = ({ content }) => (
   </div>
 );
 
-// ---- Main component ----
-export const ChatMessage: React.FC<ChatMessageProps> = ({
+// ---- Streaming body with throttled markdown updates ----
+const StreamingBody: React.FC<{ content: string }> = ({ content }) => {
+  const throttled = useThrottledText(content, true, 80);
+  return (
+    <>
+      <MarkdownBody content={throttled} />
+      <span
+        aria-hidden="true"
+        className="inline-block w-0.5 h-4 bg-accent ml-0.5 motion-safe:animate-[blink_1s_step-end_infinite]"
+      />
+    </>
+  );
+};
+
+export const ChatMessage: React.FC<ChatMessageProps> = memo(({
   message,
   liveState,
   onRegenerate,
@@ -67,7 +81,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     setTimeout(() => setCopiedResponse(false), 2000);
   };
 
-  // ---- User bubble ----
   if (isUser) {
     return (
       <div className="flex justify-end w-full my-3 animate-in fade-in duration-200">
@@ -78,7 +91,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Determine display state from liveState + persisted message ----
   const phase = liveState?.phase ?? null;
   const liveText = liveState?.text ?? '';
   const displayContent = liveState ? liveText : (message.content ?? '');
@@ -88,10 +100,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const isError = !liveState && (message.status === 'error' || message.status === 'failed');
   const isStopped = !liveState && message.status === 'stopped';
 
-  // ---- Waiting state ----
+  // Waiting state (status line directly under user bubble with 8-12px gap)
   if (isWaiting) {
     return (
-      <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
+      <div className="flex flex-col w-full mt-2.5 mb-2 animate-in fade-in duration-200">
         <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
           <span>{liveState?.statusText ?? 'Preparing…'}</span>
@@ -100,11 +112,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Retrying state ----
+  // Retrying state
   if (isRetrying) {
     const { attempt, secondsLeft } = liveState!.retry ?? { attempt: 1, secondsLeft: 0 };
     return (
-      <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
+      <div className="flex flex-col w-full mt-2.5 mb-2 animate-in fade-in duration-200">
         <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
           <span>
@@ -116,18 +128,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Streaming / writing state ----
+  // Streaming / writing state
   if (isWriting) {
     return (
       <div className="flex flex-col w-full my-4 animate-in fade-in duration-200">
         {displayContent ? (
-          <>
-            <MarkdownBody content={displayContent} />
-            <span
-              aria-hidden="true"
-              className="inline-block w-0.5 h-4 bg-accent ml-0.5 motion-safe:animate-[blink_1s_step-end_infinite]"
-            />
-          </>
+          <StreamingBody content={displayContent} />
         ) : (
           <div className="flex items-center gap-2 text-xs text-text-secondary py-1 font-mono">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -138,7 +144,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Error state (persisted or live error event) ----
+  // Error state
   if (isError) {
     return (
       <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
@@ -153,7 +159,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Stopped state (persisted) ----
+  // Stopped state
   if (isStopped) {
     return (
       <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200">
@@ -171,11 +177,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               title="Copy response"
               className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
             >
-              {copiedResponse ? (
-                <Check className="h-3.5 w-3.5 text-status-success" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
+              {copiedResponse ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           )}
           {onRegenerate && (
@@ -194,7 +196,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
-  // ---- Done state (default for completed messages) ----
+  // Done state
   return (
     <div className="group flex flex-col w-full my-4 animate-in fade-in duration-200 focus-within:outline-none">
       {displayContent ? <MarkdownBody content={displayContent} /> : null}
@@ -207,11 +209,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             title="Copy response"
             className="rail-btn !w-7 !h-7 !rounded-lg text-text-tertiary hover:text-text-primary focus:outline-none"
           >
-            {copiedResponse ? (
-              <Check className="h-3.5 w-3.5 text-status-success" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
+            {copiedResponse ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
           {isLast && onRegenerate && (
             <button
@@ -228,4 +226,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       )}
     </div>
   );
-};
+});
+
+ChatMessage.displayName = 'ChatMessage';

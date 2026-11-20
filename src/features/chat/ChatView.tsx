@@ -3,15 +3,20 @@
  * Uses TanStack Query as source of truth + module-level stream store for in-flight state.
  * Never constructs user messages in the UI for retry/regenerate — always uses {regenerate:true}.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowDown } from 'lucide-react';
 import { getConversation } from '../../services/api/client';
 import { Composer, type ComposerAttachment } from '../../components/shared/Composer';
 import { useToast } from '../../components/shared/Toast';
 import { ChatMessage } from './ChatMessage';
+import { ChatErrorCard } from './ChatErrorCard';
+import { UnansweredCard } from './UnansweredCard';
+import { shouldFollow, getScrollContainer } from './chatScroll';
 import {
   useLiveReply,
+  useConversationError,
   sendReply,
   regenerateReply,
   stopReply,
@@ -24,72 +29,130 @@ export const ChatView: React.FC = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const bottomRef = useRef<HTMLDivElement>(null);
   const initialSentRef = useRef(false);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const shouldFollowRef = useRef(true);
+  const rafScrollRef = useRef<number | null>(null);
 
-  // ---- Persisted truth from TanStack Query ----
+  const [scrollContainer, setScrollContainer] = useState<HTMLElement | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(110);
+
   const { data: conversation, isLoading } = useQuery({
     queryKey: ['conversation', id],
     queryFn: () => getConversation(id!),
     enabled: !!id,
   });
 
-  // ---- In-flight live state ----
   const liveState = useLiveReply(id);
+  const convError = useConversationError(id);
   const streaming = id ? isConversationStreaming(id) : false;
 
-  // ---- Build display message list ----
-  const persistedMessages: MessageItem[] = conversation?.messages ?? [];
+  const setContainerRef = useCallback((node: HTMLElement | null) => {
+    if (node) setScrollContainer(getScrollContainer(node));
+  }, []);
 
-  // When regenerating: hide last assistant message (live state replaces it)
+  useEffect(() => {
+    if (!scrollContainer) return;
+    const onScroll = () => {
+      const follow = shouldFollow(
+        scrollContainer.scrollTop,
+        scrollContainer.scrollHeight,
+        scrollContainer.clientHeight,
+      );
+      shouldFollowRef.current = follow;
+      setShowJumpToLatest(!follow);
+    };
+    scrollContainer.addEventListener('scroll', onScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', onScroll);
+  }, [scrollContainer]);
+
+  const jumpToLatest = useCallback(() => {
+    shouldFollowRef.current = true;
+    setShowJumpToLatest(false);
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }, [scrollContainer]);
+
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        if (h > 0) setComposerHeight(h);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const persistedMessages: MessageItem[] = conversation?.messages ?? [];
   const baseMessages = liveState?.isRegenerating
     ? (() => {
-        const lastAssistantIdx = [...persistedMessages].reverse().findIndex(
-          m => m.role === 'assistant',
-        );
-        if (lastAssistantIdx === -1) return persistedMessages;
-        return persistedMessages.slice(0, persistedMessages.length - 1 - lastAssistantIdx);
+        const lastIdx = [...persistedMessages].reverse().findIndex(m => m.role === 'assistant');
+        return lastIdx === -1 ? persistedMessages : persistedMessages.slice(0, persistedMessages.length - 1 - lastIdx);
       })()
     : persistedMessages;
 
-  // Append optimistic user message if streaming a new reply
-  const displayMessages: MessageItem[] = [
-    ...baseMessages,
-    ...(liveState?.optimisticUserMessage ? [liveState.optimisticUserMessage] : []),
-  ];
+  const showOptUser = liveState?.optimisticUserMessage &&
+    !baseMessages.some(m => m.id === liveState.optimisticUserMessage?.id || (liveState.userMessageId && m.id === liveState.userMessageId));
 
-  // ---- Scroll to bottom on new content ----
+  const userMessages: MessageItem[] = showOptUser
+    ? [...baseMessages, liveState!.optimisticUserMessage!]
+    : baseMessages;
+
+  const hasPersistedAssistant = !!(
+    liveState?.assistantMessageId && userMessages.some(m => m.id === liveState.assistantMessageId)
+  );
+
+  const displayMessages: MessageItem[] = (liveState && !hasPersistedAssistant)
+    ? [
+        ...userMessages,
+        {
+          id: liveState.assistantMessageId || 'live-assistant',
+          conversation_id: id ?? '',
+          role: 'assistant',
+          content: liveState.text,
+          status: 'streaming',
+          created_at: new Date().toISOString(),
+        },
+      ]
+    : userMessages;
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages.length, liveState?.text]);
+    if (!scrollContainer || !shouldFollowRef.current) return;
+    if (rafScrollRef.current === null) {
+      rafScrollRef.current = requestAnimationFrame(() => {
+        rafScrollRef.current = null;
+        if (shouldFollowRef.current && scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
+      });
+    }
+  }, [displayMessages.length, liveState?.text, scrollContainer]);
 
-  // ---- Send initial prompt from navigation state ----
   useEffect(() => {
     const state = location.state as { initialPrompt?: string } | null;
     if (state?.initialPrompt && !initialSentRef.current && !isLoading && id) {
       initialSentRef.current = true;
       window.history.replaceState({}, document.title);
+      jumpToLatest();
       void sendReply(id, state.initialPrompt, queryClient, showToast);
     }
-  }, [location.state, isLoading, id, queryClient, showToast]);
+  }, [location.state, isLoading, id, queryClient, showToast, jumpToLatest]);
 
-  // ---- Handlers ----
   const handleComposerSubmit = (content: string, _attachments: ComposerAttachment[]) => {
     if (!id) return;
+    jumpToLatest();
     void sendReply(id, content, queryClient, showToast);
   };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = useCallback(() => {
     if (!id) return;
+    jumpToLatest();
     void regenerateReply(id, queryClient, showToast);
-  };
+  }, [id, queryClient, showToast, jumpToLatest]);
 
-  const handleStop = () => {
-    if (!id) return;
-    stopReply(id);
-  };
-
-  // ---- Determine last assistant index for Regenerate button ----
   const lastAssistantIdx = (() => {
     for (let i = displayMessages.length - 1; i >= 0; i--) {
       if (displayMessages[i].role === 'assistant') return i;
@@ -97,9 +160,15 @@ export const ChatView: React.FC = () => {
     return -1;
   })();
 
+  const isUnanswered = !streaming && displayMessages.length > 0 &&
+    displayMessages[displayMessages.length - 1].role === 'user';
+
   return (
-    <div className="flex flex-col min-h-full max-w-3xl mx-auto px-4 pt-6 pb-36">
-      {/* Conversation title: 14px muted, non-sticky */}
+    <div
+      ref={setContainerRef}
+      className="flex flex-col min-h-full max-w-3xl mx-auto px-4 pt-6"
+      style={{ paddingBottom: `${composerHeight + 24}px` }}
+    >
       {conversation?.title && (
         <div className="pb-4">
           <h2 className="text-[14px] text-text-secondary truncate font-normal select-none">
@@ -108,57 +177,62 @@ export const ChatView: React.FC = () => {
         </div>
       )}
 
-      {/* Messages */}
       <div className="flex-1 flex flex-col justify-start">
         {displayMessages.map((m, idx) => {
-          const isLastMsg = idx === displayMessages.length - 1;
-          // Attach live state to the last assistant message if streaming
-          const msgLiveState =
-            liveState && m.role === 'assistant' && isLastMsg && m.id === liveState.assistantMessageId
-              ? liveState
-              : null;
-
+          const isLive = liveState && (
+            m.id === liveState.assistantMessageId ||
+            m.id === 'live-assistant' ||
+            (!hasPersistedAssistant && idx === displayMessages.length - 1 && m.role === 'assistant')
+          );
           return (
             <ChatMessage
               key={m.id || idx}
               message={m}
-              liveState={msgLiveState}
-              onRegenerate={
-                m.role === 'assistant' && idx === lastAssistantIdx ? handleRegenerate : undefined
-              }
+              liveState={isLive ? liveState : null}
+              onRegenerate={m.role === 'assistant' && idx === lastAssistantIdx ? handleRegenerate : undefined}
               isLast={m.role === 'assistant' && idx === lastAssistantIdx}
             />
           );
         })}
 
-        {/* Live assistant bubble — shown ONLY when streaming and no persisted assistant message yet */}
-        {liveState && liveState.assistantMessageId === null && (
-          <ChatMessage
-            key="live-assistant"
-            message={{
-              id: 'live-assistant',
-              conversation_id: id ?? '',
-              role: 'assistant',
-              content: liveState.text,
-              status: 'streaming',
-              created_at: new Date().toISOString(),
-            }}
-            liveState={liveState}
-          />
+        {isUnanswered && (
+          convError ? (
+            <ChatErrorCard
+              errorCategory={convError.code || convError.category}
+              rawMessage={convError.message}
+              onRetry={handleRegenerate}
+              isStreaming={false}
+            />
+          ) : (
+            <UnansweredCard onRetry={handleRegenerate} disabled={streaming} />
+          )
         )}
-
-        <div ref={bottomRef} className="h-4" />
       </div>
 
-      {/* Floating composer */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[var(--sidebar-width,72px)] z-30 p-4 pointer-events-none transition-all">
+      {showJumpToLatest && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 animate-in fade-in duration-200">
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            className="glass-chip flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-primary shadow-md cursor-pointer hover:bg-white/20 select-none"
+          >
+            <ArrowDown className="h-3.5 w-3.5 text-accent" />
+            <span>Jump to latest</span>
+          </button>
+        </div>
+      )}
+
+      <div
+        ref={composerRef}
+        className="fixed bottom-0 left-0 right-0 md:left-[var(--sidebar-width,72px)] z-30 p-4 pointer-events-none transition-all"
+      >
         <div className="max-w-3xl mx-auto pointer-events-auto">
           <Composer
             variant="chat"
             placeholder="Ask anything..."
             onSubmit={handleComposerSubmit}
             isStreaming={streaming}
-            onStop={handleStop}
+            onStop={() => id && stopReply(id)}
           />
         </div>
       </div>
